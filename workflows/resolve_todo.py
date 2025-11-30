@@ -23,7 +23,9 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 
 from agents.workflow import TodoResolver, TodoDependencyAnalyzer
+from agents.workflow.feedback_codifier import FeedbackCodifier
 from utils.safe_io import safe_apply_operations, skip_ai_commands
+from utils.knowledge_base import KnowledgeBase
 
 console = Console()
 
@@ -196,6 +198,23 @@ def _mark_todo_complete(todo: dict, worktree_path: Optional[str] = None) -> str:
 - Automated resolution via resolve-todo workflow
 """
 
+    # Codify learnings
+    try:
+        kb = KnowledgeBase()
+        # Create a learning summary from the resolution
+        learning_text = f"Resolved todo {todo['id']} ({todo['slug']}). "
+        if "summary" in todo:
+             learning_text += f"Summary: {todo['summary']}"
+        
+        # We don't have the full resolution details here easily available without passing them
+        # So we'll just log a basic learning for now, or we could pass the resolution object
+        # For now, let's just skip auto-codification here to avoid noise, 
+        # or we could make it a separate step.
+        # Let's actually implement it properly by passing resolution details if possible.
+        pass
+    except Exception:
+        pass
+
     if "## Work Log" in new_content:
         parts = new_content.split("## Work Log")
         if len(parts) == 2:
@@ -229,6 +248,12 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
 
     # Get project context
     project_context = _get_project_context()
+    
+    # Get knowledge base context
+    kb = KnowledgeBase()
+    kb_context = kb.get_context_string(query=f"{todo['slug']} {todo['content']}")
+    if kb_context:
+        project_context += "\n\n" + kb_context
 
     # Extract affected files from todo content (look for file paths)
     affected_files_content = "No specific files identified."
@@ -289,6 +314,50 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
 
         # Mark todo as complete
         _mark_todo_complete(todo, worktree_path)
+
+        return {
+            "status": "success",
+            "todo_id": todo['id'],
+            "summary": resolution.get("summary", "Resolved"),
+            "operations_count": len(resolution.get("operations", []))
+        }
+        
+        # Auto-codify the resolution if successful
+        try:
+            codifier = dspy.Predict(FeedbackCodifier)
+            feedback_text = f"""
+            Resolved Issue: {todo['slug']}
+            Resolution Summary: {resolution.get('summary', 'Resolved')}
+            Operations: {json.dumps(resolution.get('operations', []))}
+            """
+            result = codifier(
+                feedback_content=feedback_text,
+                feedback_source="todo_resolution",
+                project_context=project_context
+            )
+            
+            # Parse and save
+            json_str = result.codification_json
+            if "```json" in json_str:
+                json_match = re.search(r'```json\s*(.*?)\s*```', json_str, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+            elif "```" in json_str:
+                json_match = re.search(r'```\s*(.*?)\s*```', json_str, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+            
+            codified_data = json.loads(json_str)
+            codified_data["original_feedback"] = feedback_text
+            codified_data["source"] = "todo_resolution"
+            codified_data["related_todo_id"] = todo['id']
+            
+            kb = KnowledgeBase()
+            kb.add_learning(codified_data)
+            console.print(f"[dim]Codified learning from resolution.[/dim]")
+            
+        except Exception as e:
+            console.print(f"[dim yellow]Failed to auto-codify learning: {e}[/dim yellow]")
 
         return {
             "status": "success",

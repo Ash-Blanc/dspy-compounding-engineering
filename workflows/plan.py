@@ -4,6 +4,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from agents.research import RepoResearchAnalyst, BestPracticesResearcher, FrameworkDocsResearcher
 from agents.workflow import SpecFlowAnalyzer, PlanGenerator
+from utils.knowledge_base import KnowledgeBase
 
 console = Console()
 
@@ -103,6 +104,14 @@ def run_plan(feature_description: str):
     relevant_contents = _get_relevant_file_contents()
     console.print(f"[dim]Found {len(file_listing.splitlines())} files/directories[/dim]")
 
+    # Get knowledge base context
+    kb = KnowledgeBase()
+    kb_context = kb.get_context_string(query=feature_description)
+    if kb_context:
+        console.print("[dim]Found relevant past learnings.[/dim]")
+    else:
+        console.print("[dim]No relevant past learnings found.[/dim]")
+
     with console.status("Running Research Agents..."):
         # Parallel execution in theory, sequential here for simplicity
         repo_research = dspy.Predict(RepoResearchAnalyst)(
@@ -131,6 +140,8 @@ def run_plan(feature_description: str):
     
     ## Framework Docs
     {framework_docs.documentation_summary}
+
+    {kb_context}
     """
 
     # 2. SpecFlow Analysis

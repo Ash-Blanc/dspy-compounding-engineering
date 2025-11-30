@@ -9,6 +9,7 @@ from workflows.review import run_review
 from workflows.work import run_work
 from workflows.resolve_todo import run_resolve_todo
 from workflows.generate_command import run_generate_command
+from workflows.codify import run_codify
 
 app = typer.Typer()
 
@@ -134,6 +135,32 @@ def generate_command(
         python cli.py generate-command --dry-run "Create a deployment workflow"
     """
     run_generate_command(description=description, dry_run=dry_run)
+
+
+@app.command()
+def codify(
+    feedback: str = typer.Argument(
+        ...,
+        help="The feedback, instruction, or learning to codify"
+    ),
+    source: str = typer.Option(
+        "manual_input",
+        "--source", "-s",
+        help="Source of the feedback (e.g., 'review', 'retro')"
+    )
+):
+    """
+    Codify feedback into the knowledge base.
+    
+    This command uses the FeedbackCodifier agent to transform raw feedback
+    into structured improvements (documentation, rules, patterns) and saves
+    them to the persistent knowledge base.
+    
+    Examples:
+        python cli.py codify "Always use strict typing in Python files"
+        python cli.py codify "We should use factory pattern for creating agents" --source retro
+    """
+    run_codify(feedback=feedback, source=source)
 
 
 if __name__ == "__main__":
