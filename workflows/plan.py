@@ -1,7 +1,6 @@
 import os
 import dspy
 from rich.console import Console
-from rich.markdown import Markdown
 from agents.research import RepoResearchAnalyst, BestPracticesResearcher, FrameworkDocsResearcher
 from agents.workflow import SpecFlowAnalyzer, PlanGenerator
 from utils.knowledge_base import KnowledgeBase

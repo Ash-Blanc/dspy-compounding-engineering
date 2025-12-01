@@ -1,6 +1,5 @@
 import subprocess
 import shutil
-from typing import Optional, Tuple
 
 class GitService:
     """Helper service for Git and GitHub CLI operations."""

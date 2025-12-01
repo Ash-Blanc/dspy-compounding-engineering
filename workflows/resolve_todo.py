@@ -392,7 +392,7 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
             
             kb = KnowledgeBase()
             kb.add_learning(codified_data)
-            console.print(f"[dim]Codified learning from resolution.[/dim]")
+            console.print("[dim]Codified learning from resolution.[/dim]")
             
         except Exception as e:
             console.print(f"[dim yellow]Failed to auto-codify learning: {e}[/dim yellow]")
@@ -667,7 +667,7 @@ def run_resolve_todo(
             console.print("\n[bold]Next Steps:[/bold]")
             console.print(f"1. Review changes in worktree: [cyan]cd {worktree_path}[/cyan]")
             console.print(f"2. Push branch: [cyan]cd {worktree_path} && git push -u origin {branch_name}[/cyan]")
-            console.print(f"3. Create PR: [cyan]gh pr create --title 'fix: resolve todos'[/cyan]")
+            console.print("3. Create PR: [cyan]gh pr create --title 'fix: resolve todos'[/cyan]")
             console.print(f"4. Clean up worktree: [cyan]git worktree remove {worktree_path}[/cyan]")
     elif dry_run:
         console.print("\n[yellow]DRY RUN complete. No changes were made.[/yellow]")

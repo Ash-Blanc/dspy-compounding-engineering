@@ -17,10 +17,15 @@ This CLI tool provides AI-powered development tools for code review, planning, a
   - **Data Integrity Guardian**: Checks transaction safety and validation
   - And many more...
 
+- **🤖 ReAct File Editing**: Intelligent file operations with reasoning
+  - **Smart Tools**: List, search, read ranges, and edit specific lines
+  - **Iterative Reasoning**: Think → Act → Observe → Iterate pattern
+  - **Zero Hallucination**: Direct file manipulation, not text generation
+
 - **🛡️ Secure Work Execution**: Safely execute AI-generated plans
-  - **Isolated Worktrees**: All changes happen in isolated git worktrees
-  - **Safe Testing**: Tests run in isolation before changes are merged
-  - **Zero Risk**: Your main working directory is never directly modified
+  - **Isolated Worktrees**: Optional `--worktree` mode for safe parallel execution
+  - **Parallel Processing**: Multi-threaded todo resolution with `--workers`
+  - **Flexible Modes**: In-place (default) or isolated worktree execution
 
 - **📋 Smart Planning**: Transform feature descriptions into detailed plans
   - Repository research & pattern analysis
@@ -116,32 +121,39 @@ uv run python cli.py triage
 - **All**: Batch approve all remaining items
 - **Custom**: Change priority or details
 
-### 3. Resolve Todos
+### 3. Work on Todos or Plans
 
-Automatically resolve ready todos using AI agents in isolated worktrees:
+Unified command for resolving todos or executing plans using ReAct agents:
 
 ```bash
-# Resolve all ready todos
-uv run python cli.py resolve-todo
+# Resolve all P1 priority todos
+uv run python cli.py work p1
 
-# Resolve todos matching a pattern (e.g., P1 priority)
-uv run python cli.py resolve-todo p1
+# Resolve specific todo by ID
+uv run python cli.py work 001
+
+# Execute a plan file
+uv run python cli.py work plans/feature.md
 
 # Preview changes without applying (dry run)
-uv run python cli.py resolve-todo --dry-run
+uv run python cli.py work p1 --dry-run
 
-# Run sequentially instead of in parallel
-uv run python cli.py resolve-todo --sequential
+# Use isolated worktree (safe parallel execution)
+uv run python cli.py work p1 --worktree
+
+# Control parallelization
+uv run python cli.py work p2 --sequential  # Sequential execution
+uv run python cli.py work p2 --workers 5   # 5 parallel workers
 ```
 
 This will:
 
-1. Find all `*-ready-*.md` todos matching the pattern
-2. Analyze dependencies between todos
-3. Create an isolated worktree with a new branch
-4. Resolve each todo using AI agents
+1. Auto-detect input type (todo ID, plan file, or pattern)
+2. Use ReAct reasoning for intelligent file operations
+3. Execute in-place (default) or in isolated worktree (`--worktree`)
+4. Process todos in parallel (default) or sequentially (`--sequential`)
 5. Mark todos as complete (`*-complete-*.md`)
-6. Commit changes and provide PR instructions
+6. Clean up worktrees automatically
 
 ### 4. Generate Commands
 
@@ -163,20 +175,14 @@ Generate a detailed implementation plan:
 uv run python cli.py plan "Add user authentication with OAuth"
 ```
 
-### 6. Execute Work
+### 6. Codify Learnings
 
-Execute a plan or todo file in a secure, isolated environment:
+Capture and codify learnings into the knowledge base:
 
 ```bash
-uv run python cli.py work plans/my-feature.md
+uv run python cli.py codify "Always validate user input before database operations"
+uv run python cli.py codify "Use factory pattern for agent creation" --source retro
 ```
-
-This will:
-
-1. Create a `feature/<name>` branch
-2. Create an isolated worktree in `worktrees/`
-3. Implement the changes and run tests
-4. Clean up the worktree upon completion
 
 ## Architecture
 
@@ -188,7 +194,7 @@ dspy-compounding-engineering/
 │   └── workflow/            # Execution & Triage Agents
 ├── workflows/               # Command Logic
 │   ├── review.py            # Parallel review orchestration
-│   ├── resolve_todo.py      # AI-powered todo resolution
+│   ├── work_unified.py      # AI-powered unified todo/plan execution (replaces resolve_todo)
 │   ├── generate_command.py  # Natural language → shell commands
 │   ├── work.py              # Secure worktree execution
 │   └── plan.py              # Research & planning

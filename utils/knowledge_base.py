@@ -9,7 +9,7 @@ import os
 import json
 import glob
 from datetime import datetime
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 from rich.console import Console
 
 console = Console()

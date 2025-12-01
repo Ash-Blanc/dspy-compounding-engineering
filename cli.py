@@ -6,10 +6,9 @@ from config import configure_dspy
 from workflows.triage import run_triage
 from workflows.plan import run_plan
 from workflows.review import run_review
-from workflows.work import run_work
-from workflows.resolve_todo import run_resolve_todo
 from workflows.generate_command import run_generate_command
 from workflows.codify import run_codify
+from workflows.work_unified import run_unified_work
 
 app = typer.Typer()
 
@@ -39,11 +38,40 @@ def plan(feature_description: str):
 
 
 @app.command()
-def work(plan_file: str):
+def work(
+    pattern: Optional[str] = typer.Argument(None, help="Todo ID, plan file, or pattern"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Dry run mode"),
+    sequential: bool = typer.Option(False, "--sequential", "-s", help="Execute todos sequentially instead of in parallel"),
+    max_workers: int = typer.Option(3, "--workers", "-w", help="Maximum number of parallel workers"),
+    in_place: bool = typer.Option(True, "--in-place/--worktree", help="Apply changes in-place to current branch (default) or use isolated worktree")
+):
     """
-    Execute work plans systematically.
+    Unified work command using DSPy ReAct.
+    
+    Automatically detects input type:
+    - Todo ID: "001"
+    - Plan file: "plans/feature.md"
+    - Pattern: "p1", "security"
+    
+    **Migration Note**: This command replaces the old `resolve-todo` command.
+    All todo resolution and plan execution now go through this unified interface.
     """
-    run_work(plan_file)
+    # Validate pattern input for security
+    if pattern:
+        if len(pattern) > 256:
+            raise typer.BadParameter("Pattern too long (max 256 characters)")
+        if '\0' in pattern:
+            raise typer.BadParameter("Null bytes not allowed in pattern")
+        if '..' in pattern or pattern.startswith('/'):
+            raise typer.BadParameter("Path traversal sequences not allowed")
+    
+    run_unified_work(
+        pattern=pattern,
+        dry_run=dry_run,
+        parallel=not sequential,
+        max_workers=max_workers,
+        in_place=in_place
+    )
 
 
 @app.command()
@@ -60,60 +88,6 @@ def review(
         uv run python cli.py review 123          # Review PR #123
     """
     run_review(pr_url_or_id, project=project)
-
-
-@app.command()
-def resolve_todo(
-    pattern: Optional[str] = typer.Argument(
-        None,
-        help="Optional pattern to filter todos (e.g., '001' or 'security')"
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run", "-n",
-        help="Show what would be done without applying changes"
-    ),
-    sequential: bool = typer.Option(
-        False,
-        "--sequential", "-s",
-        help="Execute todos sequentially instead of in parallel"
-    ),
-    max_workers: int = typer.Option(
-        3,
-        "--workers", "-w",
-        help="Maximum number of parallel workers"
-    ),
-    in_place: bool = typer.Option(
-        True,
-        "--in-place/--worktree",
-        help="Apply changes in-place to current branch (default) or use isolated worktree"
-    )
-):
-    """
-    Resolve all ready todos from code review findings.
-
-    This command processes todos that have been triaged and marked as ready,
-    using AI agents to generate and apply fixes.
-
-    The workflow:
-    1. Discovers all *-ready-*.md files in todos/
-    2. Analyzes dependencies between todos
-    3. Executes resolutions (in parallel where possible)
-    4. Marks completed todos and offers to commit
-
-    Examples:
-        python cli.py resolve-todo              # Resolve all ready todos
-        python cli.py resolve-todo 001          # Resolve only todo 001
-        python cli.py resolve-todo security     # Resolve todos matching 'security'
-        python cli.py resolve-todo --dry-run    # Preview without applying changes
-    """
-    run_resolve_todo(
-        pattern=pattern,
-        dry_run=dry_run,
-        parallel=not sequential,
-        max_workers=max_workers,
-        in_place=in_place
-    )
 
 
 @app.command()

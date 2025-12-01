@@ -2,7 +2,6 @@ import os
 import subprocess
 import re
 import json
-import shutil
 from typing import Optional
 
 import dspy
@@ -11,8 +10,8 @@ from rich.prompt import Confirm
 from rich.table import Table
 from rich.panel import Panel
 
-from agents.workflow import TaskExtractor, TaskExecutor, TaskValidator
-from utils.safe_io import safe_apply_operations, skip_ai_commands, validate_path
+from agents.workflow import TaskExtractor, TaskExecutor
+from utils.safe_io import safe_apply_operations, skip_ai_commands
 
 console = Console()
 

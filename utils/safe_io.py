@@ -1,6 +1,5 @@
 import os
 import shutil
-from typing import Optional
 
 from rich.console import Console
 

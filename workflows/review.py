@@ -105,7 +105,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
                 else:
                     console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
                     GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
-                    console.print(f"[green]✓ Worktree created[/green]")
+                    console.print("[green]✓ Worktree created[/green]")
             except Exception as e:
                 console.print(f"[yellow]Warning: Could not create worktree (proceeding with diff only): {e}[/yellow]")
 
@@ -309,7 +309,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
         console.print(table)
 
-        console.print(f"\n[bold]Findings Summary:[/bold]")
+        console.print("\n[bold]Findings Summary:[/bold]")
         console.print(f"  Total Findings: {len(created_todos)}")
         if p1_count:
             console.print(f"  [red]🔴 CRITICAL (P1): {p1_count} - BLOCKS MERGE[/red]")
