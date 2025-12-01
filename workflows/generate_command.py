@@ -56,7 +56,9 @@ def _get_existing_agents() -> str:
                     # Convert to class name format
                     class_name = "".join(word.title() for word in agent_name.split("_"))
                     category = agent_dir.split("/")[-1]
-                    agents.append(f"- {class_name} ({category}): {agent_dir}/{filename}")
+                    agents.append(
+                        f"- {class_name} ({category}): {agent_dir}/{filename}"
+                    )
 
     return "\n".join(agents) if agents else "No existing agents found."
 
@@ -94,11 +96,13 @@ def run_generate_command(description: str, dry_run: bool = False):
         description: Natural language description of what the command should do
         dry_run: If True, show what would be created without writing files
     """
-    console.print(Panel.fit(
-        "[bold]Compounding Engineering: Generate Command[/bold]\n"
-        f"Creating command from: {description[:50]}...",
-        border_style="blue"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold]Compounding Engineering: Generate Command[/bold]\n"
+            f"Creating command from: {description[:50]}...",
+            border_style="blue",
+        )
+    )
 
     # Phase 1: Gather context
     console.rule("[bold]Phase 1: Context Gathering[/bold]")
@@ -109,8 +113,12 @@ def run_generate_command(description: str, dry_run: bool = False):
         project_structure = _get_project_structure()
 
     console.print("[green]✓ Context gathered[/green]")
-    console.print(f"[dim]Found {len(existing_commands.splitlines())} existing commands[/dim]")
-    console.print(f"[dim]Found {len(existing_agents.splitlines())} existing agents[/dim]")
+    console.print(
+        f"[dim]Found {len(existing_commands.splitlines())} existing commands[/dim]"
+    )
+    console.print(
+        f"[dim]Found {len(existing_agents.splitlines())} existing agents[/dim]"
+    )
 
     # Phase 2: Generate command specification
     console.rule("[bold]Phase 2: Command Generation[/bold]")
@@ -121,14 +129,14 @@ def run_generate_command(description: str, dry_run: bool = False):
             command_description=description,
             existing_commands=existing_commands,
             existing_agents=existing_agents,
-            project_structure=project_structure
+            project_structure=project_structure,
         )
 
         spec_json = result.command_spec_json
 
         # Parse JSON - handle markdown code blocks
         if "```" in spec_json:
-            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', spec_json)
+            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", spec_json)
             if match:
                 spec_json = match.group(1)
 
@@ -174,7 +182,11 @@ def run_generate_command(description: str, dry_run: bool = False):
     if agents_needed:
         console.print("\n[bold]Agents:[/bold]")
         for agent in agents_needed:
-            status = "[green]exists[/green]" if agent.get("exists") else "[yellow]new[/yellow]"
+            status = (
+                "[green]exists[/green]"
+                if agent.get("exists")
+                else "[yellow]new[/yellow]"
+            )
             console.print(f"  • {agent['name']} ({status}): {agent['purpose']}")
 
     # Files to create
@@ -245,7 +257,9 @@ def run_generate_command(description: str, dry_run: bool = False):
 
             # Check if file exists
             if os.path.exists(file_path):
-                if not Confirm.ask(f"[yellow]{file_path} exists. Overwrite?[/yellow]", default=False):
+                if not Confirm.ask(
+                    f"[yellow]{file_path} exists. Overwrite?[/yellow]", default=False
+                ):
                     console.print(f"  [dim]Skipped: {file_path}[/dim]")
                     continue
 
@@ -268,7 +282,9 @@ def run_generate_command(description: str, dry_run: bool = False):
     console.print("\n[bold]Next Steps:[/bold]")
     console.print("1. Review the generated code")
     console.print("2. Add the CLI registration to cli.py:")
-    console.print(f"   [cyan]{cli_code.split(chr(10))[0] if cli_code else 'See above'}[/cyan]")
+    console.print(
+        f"   [cyan]{cli_code.split(chr(10))[0] if cli_code else 'See above'}[/cyan]"
+    )
     console.print("3. Update __init__.py if new agents were created")
     console.print("4. Test the new command")
 

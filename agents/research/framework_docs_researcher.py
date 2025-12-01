@@ -1,5 +1,6 @@
 import dspy
 
+
 class FrameworkDocsResearcher(dspy.Signature):
     """
     You are a meticulous Framework Documentation Researcher specializing in gathering comprehensive technical documentation and best practices for software libraries and frameworks. Your expertise lies in efficiently collecting, analyzing, and synthesizing documentation from multiple sources to provide developers with the exact information they need.
@@ -32,6 +33,10 @@ class FrameworkDocsResearcher(dspy.Signature):
     6. **Common Issues**: Known problems and their solutions
     7. **References**: Links to documentation and source files
     """
-    
-    framework_or_library = dspy.InputField(desc="The framework, library, or feature to research")
-    documentation_summary = dspy.OutputField(desc="The comprehensive documentation summary")
+
+    framework_or_library = dspy.InputField(
+        desc="The framework, library, or feature to research"
+    )
+    documentation_summary = dspy.OutputField(
+        desc="The comprehensive documentation summary"
+    )

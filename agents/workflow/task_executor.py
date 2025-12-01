@@ -58,10 +58,17 @@ class TaskExecutor(dspy.Signature):
     """
 
     task_title = dspy.InputField(desc="The title of the task to execute")
-    task_description = dspy.InputField(desc="Detailed description of what needs to be done")
+    task_description = dspy.InputField(
+        desc="Detailed description of what needs to be done"
+    )
     task_files = dspy.InputField(desc="List of files likely to be affected")
     task_acceptance_criteria = dspy.InputField(desc="Criteria for task completion")
-    existing_code_context = dspy.InputField(desc="Relevant existing code from the project")
-    project_conventions = dspy.InputField(desc="Project coding conventions and patterns")
-    implementation_json = dspy.OutputField(desc="Pure JSON object (no markdown) with keys: summary (string), operations (array of {action, file_path, content, changes_description}), commands (array), next_steps (array)")
-
+    existing_code_context = dspy.InputField(
+        desc="Relevant existing code from the project"
+    )
+    project_conventions = dspy.InputField(
+        desc="Project coding conventions and patterns"
+    )
+    implementation_json = dspy.OutputField(
+        desc="Pure JSON object (no markdown) with keys: summary (string), operations (array of {action, file_path, content, changes_description}), commands (array), next_steps (array)"
+    )

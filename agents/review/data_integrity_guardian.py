@@ -1,5 +1,6 @@
 import dspy
 
+
 class DataIntegrityGuardian(dspy.Signature):
     """
     You are a Data Integrity Guardian, an expert in database design, data migration safety, and data governance.
@@ -44,6 +45,8 @@ class DataIntegrityGuardian(dspy.Signature):
     3. Maintaining consistency across related data
     4. Compliance with privacy regulations
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
-    data_integrity_report = dspy.OutputField(desc="The data integrity analysis and recommendations")
+    data_integrity_report = dspy.OutputField(
+        desc="The data integrity analysis and recommendations"
+    )

@@ -1,5 +1,6 @@
 import dspy
 
+
 class PatternRecognitionSpecialist(dspy.Signature):
     """
     You are a Code Pattern Analysis Expert specializing in identifying design patterns, anti-patterns, and code quality issues.
@@ -33,6 +34,6 @@ class PatternRecognitionSpecialist(dspy.Signature):
     - Prioritize findings by impact
     - Provide actionable recommendations
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
     pattern_analysis = dspy.OutputField(desc="The pattern analysis and recommendations")

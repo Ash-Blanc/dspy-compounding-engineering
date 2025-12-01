@@ -44,15 +44,19 @@ def _add_work_log_entry(content: str, action: str) -> str:
 def _fill_recommended_action(content: str) -> str:
     """Replace the 'Recommended Action' placeholder with actual recommendation."""
     placeholder = "*To be filled during triage.*"
-    recommendation = "Implement the proposed solution from the code review finding (Option 1)."
-    
+    recommendation = (
+        "Implement the proposed solution from the code review finding (Option 1)."
+    )
+
     return content.replace(placeholder, recommendation)
 
 
 def run_triage():
     todos_dir = "todos"
     if not os.path.exists(todos_dir):
-        console.print(f"[yellow]Directory '{todos_dir}' does not exist. Creating it...[/yellow]")
+        console.print(
+            f"[yellow]Directory '{todos_dir}' does not exist. Creating it...[/yellow]"
+        )
         os.makedirs(todos_dir)
 
     # Find pending todos
@@ -81,7 +85,9 @@ def run_triage():
         console.print("[green]No pending todos found![/green]")
         return
 
-    console.print(f"[bold]Found {len(pending_files)} pending items for triage.[/bold]\n")
+    console.print(
+        f"[bold]Found {len(pending_files)} pending items for triage.[/bold]\n"
+    )
 
     triage_predictor = dspy.Predict(TriageAgent)
 
@@ -99,7 +105,7 @@ def run_triage():
         filename = os.path.basename(file_path)
 
         # Show progress
-        console.print(f"\n[dim]Progress: {idx-1}/{total_items} completed[/dim]")
+        console.print(f"\n[dim]Progress: {idx - 1}/{total_items} completed[/dim]")
         console.rule(f"[{idx}/{total_items}] Triaging: {filename}")
 
         # Use LLM to present the finding
@@ -113,7 +119,7 @@ def run_triage():
         choice = Prompt.ask(
             f"Action? ({remaining} remaining)",
             choices=["yes", "all", "next", "custom"],
-            default="yes"
+            default="yes",
         )
 
         if choice == "yes":
@@ -125,21 +131,29 @@ def run_triage():
                 # Update status in content and add work log entry
                 new_content = content.replace("status: pending", "status: ready")
                 new_content = _fill_recommended_action(new_content)
-                new_content = _add_work_log_entry(new_content, "Issue approved during triage session")
+                new_content = _add_work_log_entry(
+                    new_content, "Issue approved during triage session"
+                )
 
                 with open(new_path, "w") as f:
                     f.write(new_content)
 
                 os.remove(file_path)
-                console.print(f"[green]✅ Approved: {new_filename} - Status: ready[/green]")
+                console.print(
+                    f"[green]✅ Approved: {new_filename} - Status: ready[/green]"
+                )
                 approved_count += 1
                 approved_todos.append(new_filename)
             else:
-                console.print(f"[red]Error: Filename format unexpected: {filename}[/red]")
+                console.print(
+                    f"[red]Error: Filename format unexpected: {filename}[/red]"
+                )
 
         elif choice == "all":
             # Accept all remaining items (including current one)
-            console.print(f"\n[bold cyan]Accepting all {remaining} remaining items...[/bold cyan]")
+            console.print(
+                f"\n[bold cyan]Accepting all {remaining} remaining items...[/bold cyan]"
+            )
 
             # Process current file first
             remaining_files = [file_path] + pending_files[idx:]
@@ -153,9 +167,13 @@ def run_triage():
                     new_filename = remaining_filename.replace("-pending-", "-ready-")
                     new_path = os.path.join(todos_dir, new_filename)
 
-                    new_content = remaining_content.replace("status: pending", "status: ready")
+                    new_content = remaining_content.replace(
+                        "status: pending", "status: ready"
+                    )
                     new_content = _fill_recommended_action(new_content)
-                    new_content = _add_work_log_entry(new_content, "Issue approved (batch accept all)")
+                    new_content = _add_work_log_entry(
+                        new_content, "Issue approved (batch accept all)"
+                    )
 
                     with open(new_path, "w") as f:
                         f.write(new_content)
@@ -172,7 +190,7 @@ def run_triage():
             delete_choice = Prompt.ask(
                 "Remove this file or just skip to next?",
                 choices=["skip", "remove"],
-                default="skip"
+                default="skip",
             )
 
             if delete_choice == "remove":
@@ -187,27 +205,33 @@ def run_triage():
         elif choice == "custom":
             # Ask for custom priority
             new_priority = Prompt.ask(
-                "Enter new priority",
-                choices=["p1", "p2", "p3"],
-                default="p2"
+                "Enter new priority", choices=["p1", "p2", "p3"], default="p2"
             )
 
             if "-pending-" in filename:
                 # Replace old priority with new one
-                new_filename = re.sub(r"-pending-(p[123])-", f"-ready-{new_priority}-", filename)
+                new_filename = re.sub(
+                    r"-pending-(p[123])-", f"-ready-{new_priority}-", filename
+                )
                 new_path = os.path.join(todos_dir, new_filename)
 
                 # Update content
                 new_content = content.replace("status: pending", "status: ready")
-                new_content = re.sub(r"priority: p[123]", f"priority: {new_priority}", new_content)
+                new_content = re.sub(
+                    r"priority: p[123]", f"priority: {new_priority}", new_content
+                )
                 new_content = _fill_recommended_action(new_content)
-                new_content = _add_work_log_entry(new_content, f"Issue approved with custom priority: {new_priority}")
+                new_content = _add_work_log_entry(
+                    new_content, f"Issue approved with custom priority: {new_priority}"
+                )
 
                 with open(new_path, "w") as f:
                     f.write(new_content)
 
                 os.remove(file_path)
-                console.print(f"[green]✅ Approved (Custom {new_priority.upper()}): {new_filename}[/green]")
+                console.print(
+                    f"[green]✅ Approved (Custom {new_priority.upper()}): {new_filename}[/green]"
+                )
                 approved_count += 1
                 approved_todos.append(new_filename)
 
@@ -221,7 +245,9 @@ def run_triage():
 
     table.add_row("Total Items", str(total_items))
     table.add_row("[green]Approved (ready)[/green]", f"[green]{approved_count}[/green]")
-    table.add_row("[yellow]Skipped (deleted)[/yellow]", f"[yellow]{skipped_count}[/yellow]")
+    table.add_row(
+        "[yellow]Skipped (deleted)[/yellow]", f"[yellow]{skipped_count}[/yellow]"
+    )
 
     console.print(table)
 
@@ -241,4 +267,6 @@ def run_triage():
     console.print("2. Start work on approved items:")
     console.print("   [cyan]python cli.py work <todo_file>[/cyan]")
     console.print("3. Or commit the todos:")
-    console.print("   [cyan]git add todos/ && git commit -m 'chore: add triaged todos'[/cyan]")
+    console.print(
+        "   [cyan]git add todos/ && git commit -m 'chore: add triaged todos'[/cyan]"
+    )

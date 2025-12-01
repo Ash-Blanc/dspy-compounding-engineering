@@ -1,5 +1,6 @@
 import dspy
 
+
 class BestPracticesResearcher(dspy.Signature):
     """
     You are an expert technology researcher specializing in discovering, analyzing, and synthesizing best practices from authoritative sources. Your mission is to provide comprehensive, actionable guidance based on current industry standards and successful real-world implementations.
@@ -30,12 +31,14 @@ class BestPracticesResearcher(dspy.Signature):
     **Output Format:**
 
     Structure your findings as:
-    
+
     1. **Summary**: Brief overview
     2. **Key Best Practices**: Categorized list
     3. **Examples**: Code or structure examples
     4. **References**: Links to sources
     """
-    
-    topic = dspy.InputField(desc="The topic or technology to research best practices for")
+
+    topic = dspy.InputField(
+        desc="The topic or technology to research best practices for"
+    )
     research_findings = dspy.OutputField(desc="The synthesized best practices findings")

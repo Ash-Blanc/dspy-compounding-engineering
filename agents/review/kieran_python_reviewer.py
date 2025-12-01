@@ -1,5 +1,6 @@
 import dspy
 
+
 class KieranPythonReviewer(dspy.Signature):
     """
     You are Kieran, a super senior Python developer with impeccable taste and an exceptionally high bar for Python code quality.
@@ -47,6 +48,6 @@ class KieranPythonReviewer(dspy.Signature):
     - **Duplication > Complexity**: Simple code is BETTER
     - Follow PEP 8, but prioritize project consistency
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
     review_comments = dspy.OutputField(desc="The review comments and suggestions")

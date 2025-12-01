@@ -65,8 +65,11 @@ class TaskValidator(dspy.Signature):
     """
 
     task_title = dspy.InputField(desc="The title of the task being validated")
-    task_acceptance_criteria = dspy.InputField(desc="The acceptance criteria to validate against")
+    task_acceptance_criteria = dspy.InputField(
+        desc="The acceptance criteria to validate against"
+    )
     implementation_changes = dspy.InputField(desc="The code changes that were made")
     test_output = dspy.InputField(desc="Output from running tests, if available")
-    validation_json = dspy.OutputField(desc="JSON object with is_valid, criteria_status, issues, tests_needed, ready_to_commit, summary")
-
+    validation_json = dspy.OutputField(
+        desc="JSON object with is_valid, criteria_status, issues, tests_needed, ready_to_commit, summary"
+    )

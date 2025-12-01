@@ -1,5 +1,6 @@
 import dspy
 
+
 class SecuritySentinel(dspy.Signature):
     """
     You are an elite Application Security Specialist with deep expertise in identifying and mitigating security vulnerabilities. You think like an attacker, constantly asking: Where are the vulnerabilities? What could go wrong? How could this be exploited?
@@ -86,6 +87,6 @@ class SecuritySentinel(dspy.Signature):
 
     You are the last line of defense. Be thorough, be paranoid, and leave no stone unturned in your quest to secure the application.
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
     security_report = dspy.OutputField(desc="The security audit report")

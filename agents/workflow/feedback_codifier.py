@@ -87,4 +87,3 @@ class FeedbackCodifier(dspy.Signature):
     codification_json = dspy.OutputField(
         desc="Pure JSON object (no markdown) with codified improvements"
     )
-

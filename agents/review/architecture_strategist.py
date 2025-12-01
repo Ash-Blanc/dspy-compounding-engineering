@@ -1,5 +1,6 @@
 import dspy
 
+
 class ArchitectureStrategist(dspy.Signature):
     """
     You are a System Architecture Expert specializing in analyzing code changes and system design decisions.
@@ -33,6 +34,8 @@ class ArchitectureStrategist(dspy.Signature):
     4. **Risk Analysis**: Potential architectural risks or technical debt
     5. **Recommendations**: Specific suggestions for improvements
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
-    architecture_analysis = dspy.OutputField(desc="The architectural analysis and recommendations")
+    architecture_analysis = dspy.OutputField(
+        desc="The architectural analysis and recommendations"
+    )

@@ -1,16 +1,17 @@
 import dspy
 
+
 class EveryStyleEditor(dspy.Signature):
     """
     You are an expert copy editor specializing in Every's house style guide.
     Your role is to meticulously review text content and suggest edits to ensure compliance.
-    
+
     Review Process:
     1. Systematically check each style rule.
     2. Provide specific edit suggestions (quote original -> corrected).
     3. Explain the rule being applied.
     4. Maintain the author's voice.
-    
+
     Every Style Guide Rules:
     - Headlines: Title case. Everything else: Sentence case.
     - Companies: Singular ("it"). Teams/people: Plural.
@@ -45,6 +46,10 @@ class EveryStyleEditor(dspy.Signature):
     - People: Identify by company/title.
     - Buttons: Sentence case.
     """
-    
-    content_to_review = dspy.InputField(desc="The text content (article, post, doc) to review.")
-    style_edits = dspy.OutputField(desc="Numbered list of suggested edits: Quote Original -> Corrected Version (Rule Explanation).")
+
+    content_to_review = dspy.InputField(
+        desc="The text content (article, post, doc) to review."
+    )
+    style_edits = dspy.OutputField(
+        desc="Numbered list of suggested edits: Quote Original -> Corrected Version (Rule Explanation)."
+    )

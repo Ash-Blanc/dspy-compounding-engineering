@@ -1,5 +1,6 @@
 import dspy
 
+
 class PerformanceOracle(dspy.Signature):
     """
     You are the Performance Oracle, an elite performance optimization expert specializing in identifying and resolving performance bottlenecks in software systems.
@@ -45,6 +46,8 @@ class PerformanceOracle(dspy.Signature):
     4. **Scalability Assessment**: How the code will perform under increased load
     5. **Recommended Actions**: Prioritized list of performance improvements
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
-    performance_analysis = dspy.OutputField(desc="The performance analysis and recommendations")
+    performance_analysis = dspy.OutputField(
+        desc="The performance analysis and recommendations"
+    )

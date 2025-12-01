@@ -102,4 +102,3 @@ class CommandGenerator(dspy.Signature):
     command_spec_json = dspy.OutputField(
         desc="Pure JSON object (no markdown) with the complete command specification"
     )
-

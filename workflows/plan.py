@@ -1,7 +1,11 @@
 import os
 import dspy
 from rich.console import Console
-from agents.research import RepoResearchAnalyst, BestPracticesResearcher, FrameworkDocsResearcher
+from agents.research import (
+    RepoResearchAnalyst,
+    BestPracticesResearcher,
+    FrameworkDocsResearcher,
+)
 from agents.workflow import SpecFlowAnalyzer, PlanGenerator
 from utils.knowledge_base import KnowledgeBase
 
@@ -23,15 +27,30 @@ def _get_file_listing(root_dir: str = ".", max_depth: int = 3) -> str:
 
         # Filter out common non-essential directories and files
         skip_patterns = {
-            "__pycache__", ".git", ".venv", "venv", "node_modules",
-            ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist",
-            "build", "*.egg-info", ".tox", ".coverage", "htmlcov",
+            "__pycache__",
+            ".git",
+            ".venv",
+            "venv",
+            "node_modules",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
+            "dist",
+            "build",
+            "*.egg-info",
+            ".tox",
+            ".coverage",
+            "htmlcov",
         }
 
-        entries = [e for e in entries if not any(
-            e == p or (p.startswith("*") and e.endswith(p[1:]))
-            for p in skip_patterns
-        )]
+        entries = [
+            e
+            for e in entries
+            if not any(
+                e == p or (p.startswith("*") and e.endswith(p[1:]))
+                for p in skip_patterns
+            )
+        ]
 
         for i, entry in enumerate(entries):
             is_last = i == len(entries) - 1
@@ -78,7 +97,9 @@ def _get_relevant_file_contents(max_chars: int = 10000) -> str:
                     # Truncate individual files to prevent one large file dominating
                     max_per_file = min(3000, max_chars - total_chars)
                     if len(file_content) > max_per_file:
-                        file_content = file_content[:max_per_file] + "\n...[truncated]..."
+                        file_content = (
+                            file_content[:max_per_file] + "\n...[truncated]..."
+                        )
                     content_parts.append(f"--- {filename} ---\n{file_content}")
                     total_chars += len(file_content)
             except Exception:
@@ -101,7 +122,9 @@ def run_plan(feature_description: str):
     console.print("[cyan]Scanning project structure...[/cyan]")
     file_listing = _get_file_listing()
     relevant_contents = _get_relevant_file_contents()
-    console.print(f"[dim]Found {len(file_listing.splitlines())} files/directories[/dim]")
+    console.print(
+        f"[dim]Found {len(file_listing.splitlines())} files/directories[/dim]"
+    )
 
     # Get knowledge base context
     kb = KnowledgeBase()
@@ -116,17 +139,19 @@ def run_plan(feature_description: str):
         repo_research = dspy.Predict(RepoResearchAnalyst)(
             feature_description=feature_description,
             file_listings=file_listing,
-            relevant_file_contents=relevant_contents
+            relevant_file_contents=relevant_contents,
         )
         console.print("[green]✓ Repo Research Complete[/green]")
-        
+
         best_practices = dspy.Predict(BestPracticesResearcher)(
             topic=feature_description
         )
         console.print("[green]✓ Best Practices Research Complete[/green]")
-        
-        framework_docs = dspy.Predict(FrameworkDocsResearcher)(
-            framework_or_library=feature_description # This might need extraction of keywords
+
+        framework_docs = dspy.Predict(
+            FrameworkDocsResearcher
+        )(
+            framework_or_library=feature_description  # This might need extraction of keywords
         )
         console.print("[green]✓ Framework Docs Research Complete[/green]")
 
@@ -147,30 +172,29 @@ def run_plan(feature_description: str):
     console.rule("Phase 2: SpecFlow Analysis")
     with console.status("Analyzing User Flows..."):
         spec_flow = dspy.Predict(SpecFlowAnalyzer)(
-            feature_description=feature_description,
-            research_findings=research_summary
+            feature_description=feature_description, research_findings=research_summary
         )
     console.print("[green]✓ SpecFlow Analysis Complete[/green]")
-    
+
     # 3. Plan Generation
     console.rule("Phase 3: Plan Generation")
     with console.status("Generating Plan..."):
         plan_gen = dspy.Predict(PlanGenerator)(
             feature_description=feature_description,
             research_summary=research_summary,
-            spec_flow_analysis=spec_flow.flow_analysis
+            spec_flow_analysis=spec_flow.flow_analysis,
         )
-    
+
     plan_content = plan_gen.plan_content
-    
+
     # Save plan
     # Generate filename from description (simplified)
     filename = feature_description.lower().replace(" ", "-")[:50] + ".md"
     file_path = os.path.join(plans_dir, filename)
-    
+
     with open(file_path, "w") as f:
         f.write(plan_content)
-        
+
     console.print(f"\n[bold green]Plan created at: {file_path}[/bold green]")
     console.print("\n[bold]Next Steps:[/bold]")
     console.print(f"1. Review plan: [cyan]cat {file_path}[/cyan]")

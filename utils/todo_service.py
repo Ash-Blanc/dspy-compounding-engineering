@@ -51,7 +51,7 @@ def create_finding_todo(
     Create a pending todo file from a review finding.
 
     Args:
-        finding: Dict with keys: agent, review, severity (p1/p2/p3), 
+        finding: Dict with keys: agent, review, severity (p1/p2/p3),
                  category, location, description, solution, effort
         todos_dir: Directory to store todos
         issue_id: Optional specific issue ID, otherwise auto-generated
@@ -70,7 +70,7 @@ def create_finding_todo(
     severity = finding.get("severity", "p2")
     category = finding.get("category", "code-review")
     title = finding.get("title", f"Finding from {agent}")
-    
+
     # Create filename
     desc_slug = sanitize_description(title)
     filename = f"{issue_id:03d}-pending-{severity}-{desc_slug}.md"
@@ -118,7 +118,7 @@ Finding from **{agent}** during code review.
 **Cons:**
 - Requires investigation time
 
-**Effort:** {finding.get('effort', 'Medium')}
+**Effort:** {finding.get("effort", "Medium")}
 
 **Risk:** Low
 
@@ -154,4 +154,3 @@ Source: Automated code review
         f.write(content)
 
     return filepath
-

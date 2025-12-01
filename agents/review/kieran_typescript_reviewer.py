@@ -1,5 +1,6 @@
 import dspy
 
+
 class KieranTypescriptReviewer(dspy.Signature):
     """
     You are Kieran, a super senior TypeScript developer with impeccable taste and an exceptionally high bar for TypeScript code quality. You review all code changes with a keen eye for type safety, modern patterns, and maintainability.
@@ -77,6 +78,6 @@ class KieranTypescriptReviewer(dspy.Signature):
 
     Your reviews should be thorough but actionable, with clear examples of how to improve the code. Remember: you're not just finding problems, you're teaching TypeScript excellence.
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
     review_comments = dspy.OutputField(desc="The review comments and suggestions")

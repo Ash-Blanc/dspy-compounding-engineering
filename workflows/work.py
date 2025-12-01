@@ -19,7 +19,7 @@ console = Console()
 def _sanitize_branch_name(title: str) -> str:
     """Sanitize a title into a valid git branch name."""
     sanitized = title.lower().replace(" ", "-")
-    sanitized = re.sub(r'[^a-z0-9-]', '', sanitized)
+    sanitized = re.sub(r"[^a-z0-9-]", "", sanitized)
     return sanitized[:50]  # Limit length
 
 
@@ -30,7 +30,9 @@ def _get_project_context() -> str:
     # List top-level files
     try:
         files = os.listdir(".")
-        context_parts.append(f"Project files: {', '.join(f for f in files if not f.startswith('.'))}")
+        context_parts.append(
+            f"Project files: {', '.join(f for f in files if not f.startswith('.'))}"
+        )
     except Exception:
         pass
 
@@ -64,7 +66,7 @@ def _run_tests(worktree_path: str) -> tuple[bool, str]:
     """Run tests in the worktree and return success status and output."""
     test_commands = [
         ["python", "-m", "pytest", ".", "-v"],
-        ["python", "-m", "unittest"]
+        ["python", "-m", "unittest"],
     ]
     outputs = []
     for cmd in test_commands:
@@ -88,9 +90,12 @@ def apply_task_resolution(resolution: dict, worktree_path: str) -> None:
     safe_apply_operations(resolution.get("operations", []), worktree_path)
 
     # Skip commands
-    skip_ai_commands(resolution.get("commands", []), "Disabled in worktree for security")
+    skip_ai_commands(
+        resolution.get("commands", []), "Disabled in worktree for security"
+    )
 
     console.print("[green]Task resolution applied safely.[/green]")
+
 
 def run_work(plan_file: str) -> None:
     """
@@ -99,31 +104,50 @@ def run_work(plan_file: str) -> None:
     Args:
         plan_file: Path to a plan or todo file to execute
     """
-    console.print(Panel.fit(
-        f"[bold]Compounding Engineering: Work Execution[/bold]\n"
-        f"Plan: {plan_file}",
-        border_style="blue"
-    ))
+    console.print(
+        Panel.fit(
+            f"[bold]Compounding Engineering: Work Execution[/bold]\nPlan: {plan_file}",
+            border_style="blue",
+        )
+    )
 
     # Validate file exists
     if not os.path.exists(plan_file):
         console.print(f"[red]Error: File not found: {plan_file}[/red]")
-        
+
         # Check if this looks like a todo pattern and provide helpful guidance
-        if re.match(r'^\d+$', plan_file) or plan_file.lower() in ['p1', 'p2', 'p3']:
-            console.print("\n[yellow]💡 It looks like you're trying to resolve a todo.[/yellow]")
-            console.print("\n[bold]The 'work' command is for executing plan files:[/bold]")
-            console.print("  [cyan]uv run python cli.py work plans/my-feature.md[/cyan]")
-            console.print("\n[bold]To resolve todos, use the 'resolve-todo' command:[/bold]")
-            if re.match(r'^\d+$', plan_file):
-                console.print(f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve todo #{plan_file}[/dim]")
-            elif plan_file.lower() in ['p1', 'p2', 'p3']:
-                console.print(f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve all {plan_file.upper()} todos[/dim]")
-            console.print("  [cyan]uv run python cli.py resolve-todo[/cyan]  [dim]# Resolve all ready todos[/dim]")
+        if re.match(r"^\d+$", plan_file) or plan_file.lower() in ["p1", "p2", "p3"]:
+            console.print(
+                "\n[yellow]💡 It looks like you're trying to resolve a todo.[/yellow]"
+            )
+            console.print(
+                "\n[bold]The 'work' command is for executing plan files:[/bold]"
+            )
+            console.print(
+                "  [cyan]uv run python cli.py work plans/my-feature.md[/cyan]"
+            )
+            console.print(
+                "\n[bold]To resolve todos, use the 'resolve-todo' command:[/bold]"
+            )
+            if re.match(r"^\d+$", plan_file):
+                console.print(
+                    f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve todo #{plan_file}[/dim]"
+                )
+            elif plan_file.lower() in ["p1", "p2", "p3"]:
+                console.print(
+                    f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve all {plan_file.upper()} todos[/dim]"
+                )
+            console.print(
+                "  [cyan]uv run python cli.py resolve-todo[/cyan]  [dim]# Resolve all ready todos[/dim]"
+            )
         else:
-            console.print("\n[yellow]💡 Make sure the plan file path is correct.[/yellow]")
-            console.print("[dim]Example: uv run python cli.py work plans/my-feature.md[/dim]")
-        
+            console.print(
+                "\n[yellow]💡 Make sure the plan file path is correct.[/yellow]"
+            )
+            console.print(
+                "[dim]Example: uv run python cli.py work plans/my-feature.md[/dim]"
+            )
+
         return
 
     # Read plan content
@@ -144,7 +168,8 @@ def run_work(plan_file: str) -> None:
         try:
             if "```json" in tasks_json:
                 import re as regex
-                match = regex.search(r'```json\s*(.*?)\s*```', tasks_json, regex.DOTALL)
+
+                match = regex.search(r"```json\s*(.*?)\s*```", tasks_json, regex.DOTALL)
                 if match:
                     tasks_json = match.group(1)
             tasks = json.loads(tasks_json)
@@ -161,7 +186,11 @@ def run_work(plan_file: str) -> None:
 
             for i, task in enumerate(tasks, 1):
                 if isinstance(task, dict):
-                    table.add_row(str(i), task.get("name", str(task))[:50], task.get("priority", "normal"))
+                    table.add_row(
+                        str(i),
+                        task.get("name", str(task))[:50],
+                        task.get("priority", "normal"),
+                    )
                 else:
                     table.add_row(str(i), str(task)[:50], "normal")
 
@@ -184,16 +213,18 @@ def run_work(plan_file: str) -> None:
 
     # Create isolated worktree for this plan
     from utils.git_service import GitService
-    
+
     plan_name = os.path.splitext(os.path.basename(plan_file))[0]
     safe_name = _sanitize_branch_name(plan_name)
     branch_name = f"feature/{safe_name}"
     worktree_path = f"worktrees/{safe_name}"
-    
+
     console.print(f"[cyan]Setting up isolated environment: {branch_name}[/cyan]")
     try:
         if os.path.exists(worktree_path):
-            console.print(f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]")
+            console.print(
+                f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
+            )
         else:
             GitService.create_feature_worktree(branch_name, worktree_path)
             console.print(f"[green]✓ Worktree created at {worktree_path}[/green]")
@@ -205,21 +236,31 @@ def run_work(plan_file: str) -> None:
 
     try:
         for i, task in enumerate(tasks, 1):
-            task_name = task.get("name", str(task)) if isinstance(task, dict) else str(task)
-            console.print(f"\n[bold cyan]Task {i}/{len(tasks)}: {task_name}[/bold cyan]")
+            task_name = (
+                task.get("name", str(task)) if isinstance(task, dict) else str(task)
+            )
+            console.print(
+                f"\n[bold cyan]Task {i}/{len(tasks)}: {task_name}[/bold cyan]"
+            )
 
             try:
                 # Prepare inputs for TaskExecutor
-                task_obj = task if isinstance(task, dict) else {"name": str(task), "description": str(task)}
-                
+                task_obj = (
+                    task
+                    if isinstance(task, dict)
+                    else {"name": str(task), "description": str(task)}
+                )
+
                 executor = dspy.Predict(TaskExecutor)
                 result = executor(
                     task_title=task_obj.get("name", "Unknown Task"),
                     task_description=task_obj.get("description", str(task)),
                     task_files=str(task_obj.get("files", [])),
-                    task_acceptance_criteria=str(task_obj.get("acceptance_criteria", [])),
+                    task_acceptance_criteria=str(
+                        task_obj.get("acceptance_criteria", [])
+                    ),
                     existing_code_context=project_context,
-                    project_conventions="Follow existing patterns. Use Python 3.10+. Use Rich for CLI output."
+                    project_conventions="Follow existing patterns. Use Python 3.10+. Use Rich for CLI output.",
                 )
 
                 # Parse resolution
@@ -227,17 +268,22 @@ def run_work(plan_file: str) -> None:
                 try:
                     if "```json" in resolution_text:
                         import re as regex
-                        match = regex.search(r'```json\s*(.*?)\s*```', resolution_text, regex.DOTALL)
+
+                        match = regex.search(
+                            r"```json\s*(.*?)\s*```", resolution_text, regex.DOTALL
+                        )
                         if match:
                             resolution_text = match.group(1)
                     resolution = json.loads(resolution_text)
                 except json.JSONDecodeError:
-                    console.print(f"[yellow]Warning: Could not parse resolution for task {i}[/yellow]")
+                    console.print(
+                        f"[yellow]Warning: Could not parse resolution for task {i}[/yellow]"
+                    )
                     continue
 
                 # Apply resolution in WORKTREE
                 apply_task_resolution(resolution, worktree_path)
-                
+
                 # Run tests in WORKTREE
                 console.print("[dim]Running tests...[/dim]")
                 success, output = _run_tests(worktree_path)
@@ -245,8 +291,14 @@ def run_work(plan_file: str) -> None:
                     console.print("[green]✓ Tests passed[/green]")
                 else:
                     console.print("[red]✗ Tests failed[/red]")
-                    console.print(Panel(output[:500] + "...", title="Test Output (Truncated)", border_style="red"))
-                
+                    console.print(
+                        Panel(
+                            output[:500] + "...",
+                            title="Test Output (Truncated)",
+                            border_style="red",
+                        )
+                    )
+
                 console.print(f"[green]✓ Task {i} completed[/green]")
 
             except Exception as e:
@@ -261,8 +313,11 @@ def run_work(plan_file: str) -> None:
         if os.path.exists(worktree_path):
             console.print(f"\n[yellow]Cleaning up worktree {worktree_path}...[/yellow]")
             try:
-                subprocess.run(["git", "worktree", "remove", "--force", worktree_path], 
-                             check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", worktree_path],
+                    check=True,
+                    capture_output=True,
+                )
                 console.print("[green]✓ Worktree removed[/green]")
             except subprocess.CalledProcessError as e:
                 console.print(f"[red]Failed to remove worktree: {e}[/red]")

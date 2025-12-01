@@ -21,19 +21,43 @@ from utils.todo_service import create_finding_todo
 
 console = Console()
 
+
 def _gather_project_files() -> str:
     """Gather all relevant project files for full project review."""
     project_content = []
 
     # File extensions to include
-    code_extensions = {'.py', '.js', '.ts', '.tsx', '.jsx', '.rb', '.go', '.rs', '.java', '.kt'}
-    config_extensions = {'.toml', '.yaml', '.yml', '.json'}
+    code_extensions = {
+        ".py",
+        ".js",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".rb",
+        ".go",
+        ".rs",
+        ".java",
+        ".kt",
+    }
+    config_extensions = {".toml", ".yaml", ".yml", ".json"}
 
     # Directories to skip
-    skip_dirs = {'.git', '.venv', 'venv', 'node_modules', '__pycache__', '.pytest_cache',
-                 'dist', 'build', '.tox', '.mypy_cache', 'worktrees', '.ruff_cache'}
+    skip_dirs = {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        "dist",
+        "build",
+        ".tox",
+        ".mypy_cache",
+        "worktrees",
+        ".ruff_cache",
+    }
 
-    for root, dirs, files in os.walk('.'):
+    for root, dirs, files in os.walk("."):
         # Filter out skip directories
         dirs[:] = [d for d in dirs if d not in skip_dirs]
 
@@ -42,7 +66,7 @@ def _gather_project_files() -> str:
             if ext in code_extensions or ext in config_extensions:
                 filepath = os.path.join(root, filename)
                 try:
-                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         # Skip very large files
                         if len(content) > 50000:
@@ -81,13 +105,17 @@ def run_review(pr_url_or_id: str, project: bool = False):
             if not code_diff:
                 console.print("[red]No source files found to review![/red]")
                 return
-            console.print(f"[green]✓ Gathered {len(code_diff):,} characters of project code[/green]")
+            console.print(
+                f"[green]✓ Gathered {len(code_diff):,} characters of project code[/green]"
+            )
         elif pr_url_or_id == "latest":
             # Default to checking current staged/unstaged changes or HEAD
             console.print("[cyan]Fetching local changes...[/cyan]")
             code_diff = GitService.get_diff("HEAD")
             if not code_diff:
-                console.print("[yellow]No changes found in HEAD. Checking staged changes...[/yellow]")
+                console.print(
+                    "[yellow]No changes found in HEAD. Checking staged changes...[/yellow]"
+                )
                 code_diff = GitService.get_diff("--staged")
         else:
             # Fetch PR diff
@@ -97,17 +125,25 @@ def run_review(pr_url_or_id: str, project: bool = False):
             # Create isolated worktree for PR
             try:
                 # Sanitize ID for path
-                safe_id = "".join(c for c in pr_url_or_id if c.isalnum() or c in ('-', '_'))
+                safe_id = "".join(
+                    c for c in pr_url_or_id if c.isalnum() or c in ("-", "_")
+                )
                 worktree_path = f"worktrees/review-{safe_id}"
 
                 if os.path.exists(worktree_path):
-                    console.print(f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]")
+                    console.print(
+                        f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
+                    )
                 else:
-                    console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
+                    console.print(
+                        f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]"
+                    )
                     GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
                     console.print("[green]✓ Worktree created[/green]")
             except Exception as e:
-                console.print(f"[yellow]Warning: Could not create worktree (proceeding with diff only): {e}[/yellow]")
+                console.print(
+                    f"[yellow]Warning: Could not create worktree (proceeding with diff only): {e}[/yellow]"
+                )
 
         if not code_diff:
             console.print("[red]No diff found to review![/red]")
@@ -115,20 +151,24 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
         # Truncate if too large (simple safety check)
         if len(code_diff) > 100000:
-            console.print(f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating...[/yellow]")
+            console.print(
+                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating...[/yellow]"
+            )
             code_diff = code_diff[:100000] + "\n...[truncated]..."
 
     except Exception as e:
         console.print(f"[red]Error fetching content: {e}[/red]")
         # Fallback for demo purposes if git fails
-        console.print("[yellow]Falling back to placeholder diff for demonstration...[/yellow]")
+        console.print(
+            "[yellow]Falling back to placeholder diff for demonstration...[/yellow]"
+        )
         code_diff = """
         # Placeholder diff (Git fetch failed)
         # Ensure git and gh CLI are installed and configured
         """
-    
+
     console.rule("Running Review Agents")
-    
+
     # Define all review agents
     review_agents = [
         ("Kieran Rails Reviewer", KieranRailsReviewer),
@@ -142,9 +182,9 @@ def run_review(pr_url_or_id: str, project: bool = False):
         ("Code Simplicity Reviewer", CodeSimplicityReviewer),
         ("DHH Rails Reviewer", DhhRailsReviewer),
     ]
-    
+
     findings = []
-    
+
     def run_single_agent(name, agent_cls, diff):
         try:
             predictor = dspy.Predict(agent_cls)
@@ -153,47 +193,53 @@ def run_review(pr_url_or_id: str, project: bool = False):
             return name, f"Error: {e}"
 
     with Progress() as progress:
-        task = progress.add_task("[cyan]Running agents in parallel...", total=len(review_agents))
-        
+        task = progress.add_task(
+            "[cyan]Running agents in parallel...", total=len(review_agents)
+        )
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             # Submit all tasks
             future_to_agent = {
-                executor.submit(run_single_agent, name, cls, code_diff): name 
+                executor.submit(run_single_agent, name, cls, code_diff): name
                 for name, cls in review_agents
             }
-            
+
             for future in concurrent.futures.as_completed(future_to_agent):
                 agent_name = future_to_agent[future]
                 progress.update(task, description=f"[cyan]Completed {agent_name}...")
                 progress.advance(task)
-                
+
                 try:
                     name, result = future.result()
-                    
+
                     if isinstance(result, str) and result.startswith("Error:"):
-                        findings.append({'agent': name, 'review': result})
+                        findings.append({"agent": name, "review": result})
                         continue
 
                     # Extract the review from the result
                     review_text = None
                     # Check all possible output fields
                     for field in [
-                        'review_comments', 'security_report', 'performance_analysis',
-                        'data_integrity_report', 'architecture_analysis', 'pattern_analysis',
-                        'simplification_analysis', 'dhh_review'
+                        "review_comments",
+                        "security_report",
+                        "performance_analysis",
+                        "data_integrity_report",
+                        "architecture_analysis",
+                        "pattern_analysis",
+                        "simplification_analysis",
+                        "dhh_review",
                     ]:
                         if hasattr(result, field):
                             review_text = getattr(result, field)
                             break
-                    
+
                     if review_text:
-                        findings.append({
-                            'agent': name,
-                            'review': review_text
-                        })
-                        
+                        findings.append({"agent": name, "review": review_text})
+
                 except Exception as e:
-                    findings.append({'agent': agent_name, 'review': f"Execution failed: {e}"})
+                    findings.append(
+                        {"agent": agent_name, "review": f"Execution failed: {e}"}
+                    )
 
     console.rule("Review Complete")
 
@@ -202,7 +248,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
     for finding in findings:
         console.print(f"\n[bold cyan]## {finding['agent']}[/bold cyan]")
-        console.print(Markdown(finding['review']))
+        console.print(Markdown(finding["review"]))
 
     # Create pending todo files for all findings
     console.rule("Creating Todo Files")
@@ -234,20 +280,27 @@ def run_review(pr_url_or_id: str, project: bool = False):
         review_text = finding.get("review", "")
 
         # Skip error findings or empty reviews
-        if not review_text or review_text.startswith("Error:") or review_text.startswith("Execution failed:"):
+        if (
+            not review_text
+            or review_text.startswith("Error:")
+            or review_text.startswith("Execution failed:")
+        ):
             continue
 
         # Skip findings that indicate no issues (common patterns)
         lower_review = review_text.lower()
-        if any(phrase in lower_review for phrase in [
-            "no issues found",
-            "no concerns",
-            "looks good",
-            "no problems",
-            "nothing to report",
-            "no findings",
-            "code looks clean",
-        ]):
+        if any(
+            phrase in lower_review
+            for phrase in [
+                "no issues found",
+                "no concerns",
+                "looks good",
+                "no problems",
+                "nothing to report",
+                "no findings",
+                "code looks clean",
+            ]
+        ):
             console.print(f"  [dim]Skipped {agent_name}: No actionable findings[/dim]")
             continue
 
@@ -269,11 +322,13 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
         try:
             todo_path = create_finding_todo(finding_data, todos_dir=todos_dir)
-            created_todos.append({
-                "path": todo_path,
-                "agent": agent_name,
-                "severity": severity,
-            })
+            created_todos.append(
+                {
+                    "path": todo_path,
+                    "agent": agent_name,
+                    "severity": severity,
+                }
+            )
 
             if severity == "p1":
                 p1_count += 1
@@ -282,7 +337,9 @@ def run_review(pr_url_or_id: str, project: bool = False):
             else:
                 p3_count += 1
 
-            console.print(f"  [green]✓[/green] Created: [cyan]{os.path.basename(todo_path)}[/cyan]")
+            console.print(
+                f"  [green]✓[/green] Created: [cyan]{os.path.basename(todo_path)}[/cyan]"
+            )
         except Exception as e:
             console.print(f"  [red]✗ Failed to create todo for {agent_name}: {e}[/red]")
 
@@ -314,9 +371,13 @@ def run_review(pr_url_or_id: str, project: bool = False):
         if p1_count:
             console.print(f"  [red]🔴 CRITICAL (P1): {p1_count} - BLOCKS MERGE[/red]")
         if p2_count:
-            console.print(f"  [yellow]🟡 IMPORTANT (P2): {p2_count} - Should Fix[/yellow]")
+            console.print(
+                f"  [yellow]🟡 IMPORTANT (P2): {p2_count} - Should Fix[/yellow]"
+            )
         if p3_count:
-            console.print(f"  [blue]🔵 NICE-TO-HAVE (P3): {p3_count} - Enhancements[/blue]")
+            console.print(
+                f"  [blue]🔵 NICE-TO-HAVE (P3): {p3_count} - Enhancements[/blue]"
+            )
     else:
         console.print("[green]No actionable findings to create todos for.[/green]")
 
@@ -324,8 +385,11 @@ def run_review(pr_url_or_id: str, project: bool = False):
     if worktree_path and os.path.exists(worktree_path):
         console.print(f"\n[yellow]Cleaning up worktree {worktree_path}...[/yellow]")
         try:
-            subprocess.run(["git", "worktree", "remove", "--force", worktree_path],
-                         check=True, capture_output=True)
+            subprocess.run(
+                ["git", "worktree", "remove", "--force", worktree_path],
+                check=True,
+                capture_output=True,
+            )
             console.print("[green]✓ Worktree removed[/green]")
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Failed to remove worktree: {e}[/red]")
@@ -333,4 +397,6 @@ def run_review(pr_url_or_id: str, project: bool = False):
     console.print("\n[bold]Next Steps:[/bold]")
     console.print("1. View pending todos: [cyan]ls todos/*-pending-*.md[/cyan]")
     console.print("2. Triage findings: [cyan]python cli.py triage[/cyan]")
-    console.print("3. Work on approved items: [cyan]python cli.py work <plan_file>[/cyan]")
+    console.print(
+        "3. Work on approved items: [cyan]python cli.py work <plan_file>[/cyan]"
+    )

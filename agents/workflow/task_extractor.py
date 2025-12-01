@@ -55,7 +55,12 @@ class TaskExtractor(dspy.Signature):
     - Be specific about file paths when possible
     """
 
-    plan_content = dspy.InputField(desc="The markdown plan content to extract tasks from")
-    project_context = dspy.InputField(desc="Brief context about the project structure and conventions")
-    tasks_json = dspy.OutputField(desc="JSON array of extracted tasks with id, title, description, files, depends_on, complexity, acceptance_criteria")
-
+    plan_content = dspy.InputField(
+        desc="The markdown plan content to extract tasks from"
+    )
+    project_context = dspy.InputField(
+        desc="Brief context about the project structure and conventions"
+    )
+    tasks_json = dspy.OutputField(
+        desc="JSON array of extracted tasks with id, title, description, files, depends_on, complexity, acceptance_criteria"
+    )

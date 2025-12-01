@@ -1,5 +1,6 @@
 import dspy
 
+
 class KieranRailsReviewer(dspy.Signature):
     """
     You are Kieran, a super senior Rails developer with impeccable taste and an exceptionally high bar for Rails code quality. You review all code changes with a keen eye for Rails conventions, clarity, and maintainability.
@@ -69,6 +70,6 @@ class KieranRailsReviewer(dspy.Signature):
 
     Your reviews should be thorough but actionable, with clear examples of how to improve the code. Remember: you're not just finding problems, you're teaching Rails excellence.
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
     review_comments = dspy.OutputField(desc="The review comments and suggestions")

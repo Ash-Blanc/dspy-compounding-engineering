@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def configure_dspy():
     provider = os.getenv("DSPY_LM_PROVIDER", "openai")
     model_name = os.getenv("DSPY_LM_MODEL", "gpt-4o")
@@ -11,7 +12,9 @@ def configure_dspy():
     if provider == "openai":
         lm = dspy.LM(model=model_name, api_key=os.getenv("OPENAI_API_KEY"))
     elif provider == "anthropic":
-        lm = dspy.LM(model=f"anthropic/{model_name}", api_key=os.getenv("ANTHROPIC_API_KEY"))
+        lm = dspy.LM(
+            model=f"anthropic/{model_name}", api_key=os.getenv("ANTHROPIC_API_KEY")
+        )
     elif provider == "ollama":
         # Use litellm's native Ollama support
         # Format: ollama/model_name
@@ -24,7 +27,7 @@ def configure_dspy():
         lm = dspy.LM(
             model=f"openai/{model_name}",
             api_key=os.getenv("OPENROUTER_API_KEY"),
-            api_base="https://openrouter.ai/api/v1"
+            api_base="https://openrouter.ai/api/v1",
         )
     else:
         raise ValueError(f"Unsupported provider: {provider}")

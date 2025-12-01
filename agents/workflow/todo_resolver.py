@@ -67,9 +67,13 @@ class TodoResolver(dspy.Signature):
 
     todo_content = dspy.InputField(desc="The full content of the todo markdown file")
     todo_id = dspy.InputField(desc="The unique identifier of the todo")
-    affected_files_content = dspy.InputField(desc="Content of files mentioned in the todo")
+    affected_files_content = dspy.InputField(
+        desc="Content of files mentioned in the todo"
+    )
     project_context = dspy.InputField(desc="General project context and conventions")
-    resolution_json = dspy.OutputField(desc="Pure JSON object (no markdown) with the resolution plan")
+    resolution_json = dspy.OutputField(
+        desc="Pure JSON object (no markdown) with the resolution plan"
+    )
 
 
 class TodoDependencyAnalyzer(dspy.Signature):
@@ -121,6 +125,9 @@ class TodoDependencyAnalyzer(dspy.Signature):
     ```
     """
 
-    todos_summary = dspy.InputField(desc="JSON summary of all todos with their metadata")
-    execution_plan_json = dspy.OutputField(desc="Pure JSON object with execution order and mermaid diagram")
-
+    todos_summary = dspy.InputField(
+        desc="JSON summary of all todos with their metadata"
+    )
+    execution_plan_json = dspy.OutputField(
+        desc="Pure JSON object with execution order and mermaid diagram"
+    )

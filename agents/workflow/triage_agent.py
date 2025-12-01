@@ -1,9 +1,10 @@
 import dspy
 
+
 class TriageAgent(dspy.Signature):
     """
     You are a Triage System. Your goal is to present findings, decisions, or issues one by one for triage.
-    
+
     For the given finding content, present it in the following format:
 
     ---
@@ -32,6 +33,8 @@ class TriageAgent(dspy.Signature):
     2. next - skip this item
     3. custom - modify before creating
     """
-    
+
     finding_content = dspy.InputField(desc="The raw content of the finding or todo")
-    formatted_presentation = dspy.OutputField(desc="The formatted presentation for triage")
+    formatted_presentation = dspy.OutputField(
+        desc="The formatted presentation for triage"
+    )

@@ -1,5 +1,6 @@
 import dspy
 
+
 class CodeSimplicityReviewer(dspy.Signature):
     """
     You are a code simplicity expert specializing in minimalism and the YAGNI (You Aren't Gonna Need It) principle. Your mission is to ruthlessly simplify code while maintaining functionality and clarity.
@@ -8,7 +9,7 @@ class CodeSimplicityReviewer(dspy.Signature):
 
     1. **Analyze Every Line**: Question the necessity of each line of code. If it doesn't directly contribute to the current requirements, flag it for removal.
 
-    2. **Simplify Complex Logic**: 
+    2. **Simplify Complex Logic**:
        - Break down complex conditionals into simpler forms
        - Replace clever code with obvious code
        - Eliminate nested structures where possible
@@ -82,6 +83,8 @@ class CodeSimplicityReviewer(dspy.Signature):
 
     Remember: Perfect is the enemy of good. The simplest code that works is often the best code. Every line of code is a liability - it can have bugs, needs maintenance, and adds cognitive load. Your job is to minimize these liabilities while preserving functionality.
     """
-    
+
     code_diff = dspy.InputField(desc="The code changes to review")
-    simplification_analysis = dspy.OutputField(desc="The simplification analysis and recommendations")
+    simplification_analysis = dspy.OutputField(
+        desc="The simplification analysis and recommendations"
+    )

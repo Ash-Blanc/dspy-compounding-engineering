@@ -73,20 +73,22 @@ def _get_ready_todos(pattern: Optional[str] = None) -> list[dict]:
         # Extract ID from filename (handles both old and new formats)
         match = re.match(r"^(\d+)-ready-(.*)\.md$", filename)
         if match:
-            todos.append({
-                "id": match.group(1),
-                "slug": match.group(2),
-                "path": file_path,
-                "frontmatter": frontmatter,
-                "content": content
-            })
+            todos.append(
+                {
+                    "id": match.group(1),
+                    "slug": match.group(2),
+                    "path": file_path,
+                    "frontmatter": frontmatter,
+                    "content": content,
+                }
+            )
     return todos
 
 
 def _sanitize_branch_name(name: str) -> str:
     """Create a valid git branch name from a string."""
     sanitized = name.lower().replace(" ", "-")
-    sanitized = re.sub(r'[^a-z0-9-]', '', sanitized)
+    sanitized = re.sub(r"[^a-z0-9-]", "", sanitized)
     return sanitized[:50]
 
 
@@ -96,7 +98,9 @@ def _get_project_context() -> str:
 
     try:
         files = os.listdir(".")
-        context_parts.append(f"Project files: {', '.join(f for f in files if not f.startswith('.'))}")
+        context_parts.append(
+            f"Project files: {', '.join(f for f in files if not f.startswith('.'))}"
+        )
     except Exception:
         pass
 
@@ -121,20 +125,25 @@ def _create_worktree(branch_name: str) -> str:
     worktree_path = os.path.join(worktree_dir, branch_name)
 
     if os.path.exists(worktree_path):
-        console.print(f"[yellow]Worktree {worktree_path} already exists. Reusing.[/yellow]")
+        console.print(
+            f"[yellow]Worktree {worktree_path} already exists. Reusing.[/yellow]"
+        )
         return worktree_path
 
     try:
         # Create the branch from current HEAD
         subprocess.run(
             ["git", "branch", branch_name],
-            capture_output=True, check=False  # Ignore if branch exists
+            capture_output=True,
+            check=False,  # Ignore if branch exists
         )
 
         # Create the worktree
         subprocess.run(
             ["git", "worktree", "add", worktree_path, branch_name],
-            capture_output=True, text=True, check=True
+            capture_output=True,
+            text=True,
+            check=True,
         )
         console.print(f"[green]✓ Created worktree at {worktree_path}[/green]")
         return worktree_path
@@ -149,7 +158,8 @@ def _cleanup_worktree(worktree_path: str) -> None:
     try:
         subprocess.run(
             ["git", "worktree", "remove", "--force", worktree_path],
-            capture_output=True, check=True
+            capture_output=True,
+            check=True,
         )
         console.print(f"[green]✓ Removed worktree {worktree_path}[/green]")
     except subprocess.CalledProcessError as e:
@@ -171,7 +181,9 @@ def _apply_resolution(resolution: dict, base_dir: str = ".") -> None:
     console.print("[green]Resolution applied safely.[/green]")
 
 
-def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[str] = None) -> str:
+def _mark_todo_complete(
+    todo: dict, resolution: dict, worktree_path: Optional[str] = None
+) -> str:
     """
     Mark a todo as complete by updating its file.
 
@@ -190,7 +202,7 @@ def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[st
     resolution_summary = resolution.get("summary", "Resolved")
 
     # Update content - Status
-    new_content = todo['content'].replace("status: ready", "status: complete")
+    new_content = todo["content"].replace("status: ready", "status: complete")
 
     # Update content - Acceptance Criteria
     new_content = new_content.replace("- [ ] Issue addressed", "- [x] Issue addressed")
@@ -215,8 +227,10 @@ def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[st
         new_content = resolution_section + new_content
 
     # Add work log entry
-    branch_info = f" (branch: {os.path.basename(worktree_path)})" if worktree_path else ""
-    
+    branch_info = (
+        f" (branch: {os.path.basename(worktree_path)})" if worktree_path else ""
+    )
+
     work_log_entry = f"""
 ### {today_str} - Resolved
 
@@ -248,7 +262,7 @@ def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[st
         new_content += "\n## Work Log" + work_log_entry
 
     # Create new filename (ready -> complete) - always in main repo
-    old_path = todo['path']
+    old_path = todo["path"]
     new_filename = os.path.basename(old_path).replace("-ready-", "-complete-")
     new_path = os.path.join(os.path.dirname(old_path), new_filename)
 
@@ -267,13 +281,17 @@ def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[st
     return new_path
 
 
-def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_run: bool = False) -> dict:
+def _resolve_single_todo(
+    todo: dict, worktree_path: Optional[str] = None, dry_run: bool = False
+) -> dict:
     """Resolve a single todo using TodoResolver agent."""
-    console.print(f"\n[bold cyan]Resolving Todo {todo['id']}: {todo['slug']}[/bold cyan]")
+    console.print(
+        f"\n[bold cyan]Resolving Todo {todo['id']}: {todo['slug']}[/bold cyan]"
+    )
 
     # Get project context
     project_context = _get_project_context()
-    
+
     # Get knowledge base context
     kb = KnowledgeBase()
     kb_context = kb.get_context_string(query=f"{todo['slug']} {todo['content']}")
@@ -282,7 +300,7 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
 
     # Extract affected files from todo content (look for file paths)
     affected_files_content = "No specific files identified."
-    file_pattern = re.findall(r'`([^`]+\.[a-z]+)`', todo['content'])
+    file_pattern = re.findall(r"`([^`]+\.[a-z]+)`", todo["content"])
     if file_pattern:
         affected_parts = []
         for fp in file_pattern[:5]:  # Limit to 5 files
@@ -301,16 +319,16 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
     if dry_run:
         console.print(f"[yellow]DRY RUN: Would resolve todo {todo['id']}[/yellow]")
         console.print(f"  Content preview: {todo['content'][:200]}...")
-        return {"status": "dry_run", "todo_id": todo['id']}
+        return {"status": "dry_run", "todo_id": todo["id"]}
 
     # Invoke the TodoResolver agent
     try:
         resolver = dspy.Predict(TodoResolver)
         result = resolver(
-            todo_content=todo['content'],
-            todo_id=todo['id'],
+            todo_content=todo["content"],
+            todo_id=todo["id"],
             affected_files_content=affected_files_content,
-            project_context=project_context
+            project_context=project_context,
         )
 
         # Parse the resolution JSON
@@ -320,17 +338,21 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
         try:
             # Handle case where response might have markdown code blocks
             if "```json" in resolution_text:
-                json_match = re.search(r'```json\s*(.*?)\s*```', resolution_text, re.DOTALL)
+                json_match = re.search(
+                    r"```json\s*(.*?)\s*```", resolution_text, re.DOTALL
+                )
                 if json_match:
                     resolution_text = json_match.group(1)
             elif "```" in resolution_text:
-                json_match = re.search(r'```\s*(.*?)\s*```', resolution_text, re.DOTALL)
+                json_match = re.search(r"```\s*(.*?)\s*```", resolution_text, re.DOTALL)
                 if json_match:
                     resolution_text = json_match.group(1)
 
             resolution = json.loads(resolution_text)
         except json.JSONDecodeError:
-            console.print(f"[yellow]Warning: Could not parse resolution JSON for todo {todo['id']}[/yellow]")
+            console.print(
+                f"[yellow]Warning: Could not parse resolution JSON for todo {todo['id']}[/yellow]"
+            )
             resolution = {"operations": [], "summary": resolution_text}
 
         # Apply the resolution
@@ -342,78 +364,87 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
 
         return {
             "status": "success",
-            "todo_id": todo['id'],
+            "todo_id": todo["id"],
             "summary": resolution.get("summary", "Resolved"),
-            "operations_count": len(resolution.get("operations", []))
+            "operations_count": len(resolution.get("operations", [])),
         }
-        
+
         # Auto-codify the resolution if successful
         try:
             codifier = dspy.Predict(FeedbackCodifier)
             feedback_text = f"""
-            Resolved Issue: {todo['slug']}
-            Resolution Summary: {resolution.get('summary', 'Resolved')}
-            Operations: {json.dumps(resolution.get('operations', []))}
+            Resolved Issue: {todo["slug"]}
+            Resolution Summary: {resolution.get("summary", "Resolved")}
+            Operations: {json.dumps(resolution.get("operations", []))}
             """
             result = codifier(
                 feedback_content=feedback_text,
                 feedback_source="todo_resolution",
-                project_context=project_context
+                project_context=project_context,
             )
-            
+
             # Parse and save
             json_str = result.codification_json
             if "```json" in json_str:
-                json_match = re.search(r'```json\s*(.*?)\s*```', json_str, re.DOTALL)
+                json_match = re.search(r"```json\s*(.*?)\s*```", json_str, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
             elif "```" in json_str:
-                json_match = re.search(r'```\s*(.*?)\s*```', json_str, re.DOTALL)
+                json_match = re.search(r"```\s*(.*?)\s*```", json_str, re.DOTALL)
                 if json_match:
                     json_str = json_match.group(1)
-            
+
             codified_data = json.loads(json_str)
             codified_data["original_feedback"] = feedback_text
             codified_data["source"] = "todo_resolution"
-            codified_data["related_todo_id"] = todo['id']
-            
+            codified_data["related_todo_id"] = todo["id"]
+
             kb = KnowledgeBase()
             kb.add_learning(codified_data)
             console.print("[dim]Codified learning from resolution.[/dim]")
-            
+
         except Exception as e:
-            console.print(f"[dim yellow]Failed to auto-codify learning: {e}[/dim yellow]")
+            console.print(
+                f"[dim yellow]Failed to auto-codify learning: {e}[/dim yellow]"
+            )
 
         return {
             "status": "success",
-            "todo_id": todo['id'],
+            "todo_id": todo["id"],
             "summary": resolution.get("summary", "Resolved"),
-            "operations_count": len(resolution.get("operations", []))
+            "operations_count": len(resolution.get("operations", [])),
         }
 
     except Exception as e:
         console.print(f"[red]Error resolving todo {todo['id']}: {e}[/red]")
-        return {"status": "error", "todo_id": todo['id'], "error": str(e)}
+        return {"status": "error", "todo_id": todo["id"], "error": str(e)}
 
 
 def _analyze_dependencies(todos: list[dict]) -> dict:
     """Analyze dependencies between todos and create execution plan."""
     if len(todos) <= 1:
         return {
-            "execution_order": [{"batch": 1, "todos": [t['id'] for t in todos], "can_parallel": True}],
+            "execution_order": [
+                {"batch": 1, "todos": [t["id"] for t in todos], "can_parallel": True}
+            ],
             "warnings": [],
-            "mermaid_diagram": f"flowchart TD\n  A[Todo {todos[0]['id'] if todos else 'None'}]"
+            "mermaid_diagram": f"flowchart TD\n  A[Todo {todos[0]['id'] if todos else 'None'}]",
         }
 
     # Create summary for dependency analyzer
-    todos_summary = json.dumps([{
-        "id": t['id'],
-        "slug": t['slug'],
-        "priority": t['frontmatter'].get('priority', 'p2'),
-        "tags": t['frontmatter'].get('tags', []),
-        "dependencies": t['frontmatter'].get('dependencies', []),
-        "content_preview": t['content'][:500]
-    } for t in todos])
+    todos_summary = json.dumps(
+        [
+            {
+                "id": t["id"],
+                "slug": t["slug"],
+                "priority": t["frontmatter"].get("priority", "p2"),
+                "tags": t["frontmatter"].get("tags", []),
+                "dependencies": t["frontmatter"].get("dependencies", []),
+                "content_preview": t["content"][:500],
+            }
+            for t in todos
+        ]
+    )
 
     try:
         analyzer = dspy.Predict(TodoDependencyAnalyzer)
@@ -425,11 +456,11 @@ def _analyze_dependencies(todos: list[dict]) -> dict:
         # Extract JSON
         try:
             if "```json" in plan_text:
-                json_match = re.search(r'```json\s*(.*?)\s*```', plan_text, re.DOTALL)
+                json_match = re.search(r"```json\s*(.*?)\s*```", plan_text, re.DOTALL)
                 if json_match:
                     plan_text = json_match.group(1)
             elif "```" in plan_text:
-                json_match = re.search(r'```\s*(.*?)\s*```', plan_text, re.DOTALL)
+                json_match = re.search(r"```\s*(.*?)\s*```", plan_text, re.DOTALL)
                 if json_match:
                     plan_text = json_match.group(1)
 
@@ -441,9 +472,12 @@ def _analyze_dependencies(todos: list[dict]) -> dict:
 
     # Default: all in parallel
     return {
-        "execution_order": [{"batch": 1, "todos": [t['id'] for t in todos], "can_parallel": True}],
+        "execution_order": [
+            {"batch": 1, "todos": [t["id"] for t in todos], "can_parallel": True}
+        ],
         "warnings": [],
-        "mermaid_diagram": "flowchart TD\n  " + "\n  ".join([f"{t['id']}[Todo {t['id']}]" for t in todos])
+        "mermaid_diagram": "flowchart TD\n  "
+        + "\n  ".join([f"{t['id']}[Todo {t['id']}]" for t in todos]),
     }
 
 
@@ -456,7 +490,9 @@ def _commit_and_push(worktree_path: str, todos: list[dict]) -> bool:
         # Check if there are changes to commit
         result = subprocess.run(
             ["git", "status", "--porcelain"],
-            cwd=worktree_path, capture_output=True, text=True
+            cwd=worktree_path,
+            capture_output=True,
+            text=True,
         )
 
         if not result.stdout.strip():
@@ -464,20 +500,19 @@ def _commit_and_push(worktree_path: str, todos: list[dict]) -> bool:
             return False
 
         # Create commit message
-        todo_ids = ", ".join([t['id'] for t in todos])
+        todo_ids = ", ".join([t["id"] for t in todos])
         commit_msg = f"""fix: resolve todos {todo_ids}
 
 Automated resolution of code review findings.
 
 Resolved todos:
-{chr(10).join(['- ' + t['slug'] for t in todos])}
+{chr(10).join(["- " + t["slug"] for t in todos])}
 
 🤖 Generated with Compounding Engineering CLI
 """
 
         subprocess.run(
-            ["git", "commit", "-m", commit_msg],
-            cwd=worktree_path, check=True
+            ["git", "commit", "-m", commit_msg], cwd=worktree_path, check=True
         )
         console.print("[green]✓ Changes committed[/green]")
         return True
@@ -492,7 +527,7 @@ def run_resolve_todo(
     dry_run: bool = False,
     parallel: bool = True,
     max_workers: int = 3,
-    in_place: bool = True
+    in_place: bool = True,
 ) -> None:
     """
     Main entrypoint for resolving todos.
@@ -505,11 +540,13 @@ def run_resolve_todo(
         in_place: If True, apply changes to current branch; if False, use isolated worktree
     """
     mode = "In-Place" if in_place else "Worktree"
-    console.print(Panel.fit(
-        "[bold]Compounding Engineering: Resolve Todos[/bold]\n"
-        f"Pattern: {pattern or 'all'} | Mode: {mode} | Dry Run: {dry_run} | Parallel: {parallel}",
-        border_style="blue"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold]Compounding Engineering: Resolve Todos[/bold]\n"
+            f"Pattern: {pattern or 'all'} | Mode: {mode} | Dry Run: {dry_run} | Parallel: {parallel}",
+            border_style="blue",
+        )
+    )
 
     # Phase 1: Discover todos
     console.rule("[bold]Phase 1: Discovery[/bold]")
@@ -527,8 +564,8 @@ def run_resolve_todo(
     table.add_column("Description", style="white")
 
     for todo in todos:
-        priority = todo['frontmatter'].get('priority', 'p2')
-        table.add_row(todo['id'], priority, todo['slug'][:50])
+        priority = todo["frontmatter"].get("priority", "p2")
+        table.add_row(todo["id"], priority, todo["slug"][:50])
 
     console.print(table)
 
@@ -544,7 +581,9 @@ def run_resolve_todo(
     # Display execution plan
     if execution_plan.get("mermaid_diagram"):
         console.print("\n[bold]Execution Order:[/bold]")
-        console.print(Panel(execution_plan["mermaid_diagram"], title="Dependency Graph"))
+        console.print(
+            Panel(execution_plan["mermaid_diagram"], title="Dependency Graph")
+        )
 
     if execution_plan.get("warnings"):
         for warning in execution_plan["warnings"]:
@@ -565,16 +604,20 @@ def run_resolve_todo(
     if not dry_run and not in_place:
         # Create branch name from todos
         timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-        todo_ids = "-".join([t['id'] for t in todos[:3]])  # Limit to first 3 IDs
+        todo_ids = "-".join([t["id"] for t in todos[:3]])  # Limit to first 3 IDs
         branch_name = f"fix/todos-{todo_ids}-{timestamp}"
         branch_name = _sanitize_branch_name(branch_name)
 
         try:
             worktree_path = _create_worktree(branch_name)
-            console.print(f"[green]Working in isolated worktree: {worktree_path}[/green]")
+            console.print(
+                f"[green]Working in isolated worktree: {worktree_path}[/green]"
+            )
             console.print(f"[green]Branch: {branch_name}[/green]")
         except Exception as e:
-            console.print(f"[yellow]Warning: Could not create worktree, working in place: {e}[/yellow]")
+            console.print(
+                f"[yellow]Warning: Could not create worktree, working in place: {e}[/yellow]"
+            )
     elif not dry_run:
         console.print("[cyan]Applying changes directly to current branch[/cyan]")
 
@@ -584,12 +627,14 @@ def run_resolve_todo(
     results = []
 
     # Process by batch according to execution plan
-    for batch_info in execution_plan.get("execution_order", [{"batch": 1, "todos": [t['id'] for t in todos]}]):
+    for batch_info in execution_plan.get(
+        "execution_order", [{"batch": 1, "todos": [t["id"] for t in todos]}]
+    ):
         batch_num = batch_info.get("batch", 1)
         batch_todo_ids = batch_info.get("todos", [])
         can_parallel = batch_info.get("can_parallel", True) and parallel
 
-        batch_todos = [t for t in todos if t['id'] in batch_todo_ids]
+        batch_todos = [t for t in todos if t["id"] in batch_todo_ids]
 
         if not batch_todos:
             continue
@@ -598,9 +643,13 @@ def run_resolve_todo(
 
         if can_parallel and len(batch_todos) > 1 and not dry_run:
             # Parallel execution
-            with ThreadPoolExecutor(max_workers=min(max_workers, len(batch_todos))) as executor:
+            with ThreadPoolExecutor(
+                max_workers=min(max_workers, len(batch_todos))
+            ) as executor:
                 futures = {
-                    executor.submit(_resolve_single_todo, todo, worktree_path, dry_run): todo
+                    executor.submit(
+                        _resolve_single_todo, todo, worktree_path, dry_run
+                    ): todo
                     for todo in batch_todos
                 }
                 for future in as_completed(futures):
@@ -608,37 +657,51 @@ def run_resolve_todo(
                     try:
                         result = future.result()
                         results.append(result)
-                        if result['status'] == 'success':
-                            console.print(f"  [green]✓ Todo {todo['id']}: {result.get('summary', 'Resolved')}[/green]")
+                        if result["status"] == "success":
+                            console.print(
+                                f"  [green]✓ Todo {todo['id']}: {result.get('summary', 'Resolved')}[/green]"
+                            )
                         else:
-                            console.print(f"  [red]✗ Todo {todo['id']}: {result.get('error', 'Failed')}[/red]")
+                            console.print(
+                                f"  [red]✗ Todo {todo['id']}: {result.get('error', 'Failed')}[/red]"
+                            )
                     except Exception as e:
                         console.print(f"  [red]✗ Todo {todo['id']}: {e}[/red]")
-                        results.append({"status": "error", "todo_id": todo['id'], "error": str(e)})
+                        results.append(
+                            {"status": "error", "todo_id": todo["id"], "error": str(e)}
+                        )
         else:
             # Sequential execution
             for todo in batch_todos:
                 result = _resolve_single_todo(todo, worktree_path, dry_run)
                 results.append(result)
-                if result['status'] == 'success':
-                    console.print(f"  [green]✓ Todo {todo['id']}: {result.get('summary', 'Resolved')}[/green]")
-                elif result['status'] == 'dry_run':
-                    console.print(f"  [yellow]○ Todo {todo['id']}: Would resolve[/yellow]")
+                if result["status"] == "success":
+                    console.print(
+                        f"  [green]✓ Todo {todo['id']}: {result.get('summary', 'Resolved')}[/green]"
+                    )
+                elif result["status"] == "dry_run":
+                    console.print(
+                        f"  [yellow]○ Todo {todo['id']}: Would resolve[/yellow]"
+                    )
                 else:
-                    console.print(f"  [red]✗ Todo {todo['id']}: {result.get('error', 'Failed')}[/red]")
+                    console.print(
+                        f"  [red]✗ Todo {todo['id']}: {result.get('error', 'Failed')}[/red]"
+                    )
 
     # Phase 5: Commit and summary
     console.rule("[bold]Phase 5: Summary[/bold]")
 
-    success_count = sum(1 for r in results if r['status'] == 'success')
-    error_count = sum(1 for r in results if r['status'] == 'error')
+    success_count = sum(1 for r in results if r["status"] == "success")
+    error_count = sum(1 for r in results if r["status"] == "error")
 
     summary_table = Table(title="Resolution Summary")
     summary_table.add_column("Metric", style="bold")
     summary_table.add_column("Count", justify="right")
 
     summary_table.add_row("Total Todos", str(len(todos)))
-    summary_table.add_row("[green]Successful[/green]", f"[green]{success_count}[/green]")
+    summary_table.add_row(
+        "[green]Successful[/green]", f"[green]{success_count}[/green]"
+    )
     summary_table.add_row("[red]Failed[/red]", f"[red]{error_count}[/red]")
 
     console.print(summary_table)
@@ -646,16 +709,29 @@ def run_resolve_todo(
     # Commit changes if not dry run and there were successes
     if not dry_run and success_count > 0 and worktree_path:
         if Confirm.ask("\nCommit changes?", default=True):
-            resolved_todos = [t for t in todos if any(
-                r['todo_id'] == t['id'] and r['status'] == 'success' for r in results
-            )]
+            resolved_todos = [
+                t
+                for t in todos
+                if any(
+                    r["todo_id"] == t["id"] and r["status"] == "success"
+                    for r in results
+                )
+            ]
             _commit_and_push(worktree_path, resolved_todos)
 
             console.print("\n[bold]Next Steps:[/bold]")
-            console.print(f"1. Review changes in worktree: [cyan]cd {worktree_path}[/cyan]")
-            console.print(f"2. Push branch: [cyan]cd {worktree_path} && git push -u origin {branch_name}[/cyan]")
-            console.print("3. Create PR: [cyan]gh pr create --title 'fix: resolve todos'[/cyan]")
-            console.print(f"4. Clean up worktree: [cyan]git worktree remove {worktree_path}[/cyan]")
+            console.print(
+                f"1. Review changes in worktree: [cyan]cd {worktree_path}[/cyan]"
+            )
+            console.print(
+                f"2. Push branch: [cyan]cd {worktree_path} && git push -u origin {branch_name}[/cyan]"
+            )
+            console.print(
+                "3. Create PR: [cyan]gh pr create --title 'fix: resolve todos'[/cyan]"
+            )
+            console.print(
+                f"4. Clean up worktree: [cyan]git worktree remove {worktree_path}[/cyan]"
+            )
     elif dry_run:
         console.print("\n[yellow]DRY RUN complete. No changes were made.[/yellow]")
 

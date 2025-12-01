@@ -21,7 +21,9 @@ def validate_path(path: str, base_dir: str = ".") -> str:
 
     # Ensure the resolved path is within the base directory
     if not full_path.startswith(base_abs + os.sep) and full_path != base_abs:
-        raise ValueError(f"Path outside base directory (traversal detected): {path} -> {full_path}")
+        raise ValueError(
+            f"Path outside base directory (traversal detected): {path} -> {full_path}"
+        )
 
     return full_path
 
@@ -63,11 +65,15 @@ def safe_apply_operations(operations: list[dict], base_dir: str = ".") -> None:
             console.print(f"[yellow]Unknown action skipped:[/yellow] {action}")
 
 
-def skip_ai_commands(commands: list, reason: str = "AI-generated commands disabled for security") -> None:
+def skip_ai_commands(
+    commands: list, reason: str = "AI-generated commands disabled for security"
+) -> None:
     """Log and skip AI-generated commands."""
     if commands:
-        console.print(f"[bold yellow]{reason}: {len(commands)} command(s) skipped[/bold yellow]")
+        console.print(
+            f"[bold yellow]{reason}: {len(commands)} command(s) skipped[/bold yellow]"
+        )
         for cmd in commands[:3]:  # Show first few
             console.print(f"  - {cmd}")
         if len(commands) > 3:
-            console.print(f"  ... and {len(commands)-3} more")
+            console.print(f"  ... and {len(commands) - 3} more")

@@ -1,5 +1,6 @@
 import dspy
 
+
 class PlanGenerator(dspy.Signature):
     """
     Transform feature descriptions, bug reports, or improvement ideas into well-structured markdown files issues that follow project conventions and best practices.
@@ -58,7 +59,7 @@ class PlanGenerator(dspy.Signature):
     - [Links]
     ```
     """
-    
+
     feature_description = dspy.InputField(desc="The feature description")
     research_summary = dspy.InputField(desc="Combined research findings")
     spec_flow_analysis = dspy.InputField(desc="SpecFlow analysis results")

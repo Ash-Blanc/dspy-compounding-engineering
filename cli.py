@@ -39,20 +39,33 @@ def plan(feature_description: str):
 
 @app.command()
 def work(
-    pattern: Optional[str] = typer.Argument(None, help="Todo ID, plan file, or pattern"),
+    pattern: Optional[str] = typer.Argument(
+        None, help="Todo ID, plan file, or pattern"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Dry run mode"),
-    sequential: bool = typer.Option(False, "--sequential", "-s", help="Execute todos sequentially instead of in parallel"),
-    max_workers: int = typer.Option(3, "--workers", "-w", help="Maximum number of parallel workers"),
-    in_place: bool = typer.Option(True, "--in-place/--worktree", help="Apply changes in-place to current branch (default) or use isolated worktree")
+    sequential: bool = typer.Option(
+        False,
+        "--sequential",
+        "-s",
+        help="Execute todos sequentially instead of in parallel",
+    ),
+    max_workers: int = typer.Option(
+        3, "--workers", "-w", help="Maximum number of parallel workers"
+    ),
+    in_place: bool = typer.Option(
+        True,
+        "--in-place/--worktree",
+        help="Apply changes in-place to current branch (default) or use isolated worktree",
+    ),
 ):
     """
     Unified work command using DSPy ReAct.
-    
+
     Automatically detects input type:
     - Todo ID: "001"
     - Plan file: "plans/feature.md"
     - Pattern: "p1", "security"
-    
+
     **Migration Note**: This command replaces the old `resolve-todo` command.
     All todo resolution and plan execution now go through this unified interface.
     """
@@ -60,24 +73,28 @@ def work(
     if pattern:
         if len(pattern) > 256:
             raise typer.BadParameter("Pattern too long (max 256 characters)")
-        if '\0' in pattern:
+        if "\0" in pattern:
             raise typer.BadParameter("Null bytes not allowed in pattern")
-        if '..' in pattern or pattern.startswith('/'):
+        if ".." in pattern or pattern.startswith("/"):
             raise typer.BadParameter("Path traversal sequences not allowed")
-    
+
     run_unified_work(
         pattern=pattern,
         dry_run=dry_run,
         parallel=not sequential,
         max_workers=max_workers,
-        in_place=in_place
+        in_place=in_place,
     )
 
 
 @app.command()
 def review(
-    pr_url_or_id: str = typer.Argument("latest", help="PR number, URL, branch name, or 'latest' for local changes"),
-    project: bool = typer.Option(False, "--project", "-p", help="Review entire project instead of just changes"),
+    pr_url_or_id: str = typer.Argument(
+        "latest", help="PR number, URL, branch name, or 'latest' for local changes"
+    ),
+    project: bool = typer.Option(
+        False, "--project", "-p", help="Review entire project instead of just changes"
+    ),
 ):
     """
     Perform exhaustive multi-agent code reviews.
@@ -93,14 +110,14 @@ def review(
 @app.command()
 def generate_command(
     description: str = typer.Argument(
-        ...,
-        help="Natural language description of what the command should do"
+        ..., help="Natural language description of what the command should do"
     ),
     dry_run: bool = typer.Option(
         False,
-        "--dry-run", "-n",
-        help="Show what would be created without writing files"
-    )
+        "--dry-run",
+        "-n",
+        help="Show what would be created without writing files",
+    ),
 ):
     """
     Generate a new CLI command from a natural language description.
@@ -120,22 +137,22 @@ def generate_command(
 @app.command()
 def codify(
     feedback: str = typer.Argument(
-        ...,
-        help="The feedback, instruction, or learning to codify"
+        ..., help="The feedback, instruction, or learning to codify"
     ),
     source: str = typer.Option(
         "manual_input",
-        "--source", "-s",
-        help="Source of the feedback (e.g., 'review', 'retro')"
-    )
+        "--source",
+        "-s",
+        help="Source of the feedback (e.g., 'review', 'retro')",
+    ),
 ):
     """
     Codify feedback into the knowledge base.
-    
+
     This command uses the FeedbackCodifier agent to transform raw feedback
     into structured improvements (documentation, rules, patterns) and saves
     them to the persistent knowledge base.
-    
+
     Examples:
         python cli.py codify "Always use strict typing in Python files"
         python cli.py codify "We should use factory pattern for creating agents" --source retro

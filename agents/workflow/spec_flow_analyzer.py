@@ -1,5 +1,6 @@
 import dspy
 
+
 class SpecFlowAnalyzer(dspy.Signature):
     """
     You are an elite User Experience Flow Analyst and Requirements Engineer. Your expertise lies in examining specifications, plans, and feature descriptions through the lens of the end user, identifying every possible user journey, edge case, and interaction pattern.
@@ -30,7 +31,13 @@ class SpecFlowAnalyzer(dspy.Signature):
     ### Recommended Next Steps
     [Concrete actions to resolve the gaps and questions]
     """
-    
-    feature_description = dspy.InputField(desc="The feature description, plan, or specification")
-    research_findings = dspy.InputField(desc="Findings from research agents (optional)", optional=True)
-    flow_analysis = dspy.OutputField(desc="The comprehensive flow analysis and gap identification")
+
+    feature_description = dspy.InputField(
+        desc="The feature description, plan, or specification"
+    )
+    research_findings = dspy.InputField(
+        desc="Findings from research agents (optional)", optional=True
+    )
+    flow_analysis = dspy.OutputField(
+        desc="The comprehensive flow analysis and gap identification"
+    )
