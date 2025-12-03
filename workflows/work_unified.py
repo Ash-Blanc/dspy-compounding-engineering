@@ -6,65 +6,12 @@ from rich.console import Console
 from rich.panel import Panel
 from agents.workflow.react_todo_resolver import ReActTodoResolver
 from agents.workflow.work_agent import ReActPlanExecutor
-from workflows.resolve_react import _get_ready_todos, _mark_todo_complete
+from utils.todo_service import get_ready_todos, complete_todo, parse_todo, analyze_dependencies
+from utils.git_service import GitService
 
 console = Console()
 
 
-def _sanitize_branch_name(name: str) -> str:
-    """Create a valid git branch name from a string."""
-    sanitized = name.lower().replace(" ", "-")
-    sanitized = re.sub(r"[^a-z0-9-]", "", sanitized)
-    return sanitized[:50]
-
-
-def _create_worktree(branch_name: str) -> str:
-    """Create an isolated git worktree for the resolution work."""
-    worktree_dir = "worktrees"
-    os.makedirs(worktree_dir, exist_ok=True)
-
-    worktree_path = os.path.join(worktree_dir, branch_name)
-
-    if os.path.exists(worktree_path):
-        console.print(
-            f"[yellow]Worktree {worktree_path} already exists. Reusing.[/yellow]"
-        )
-        return worktree_path
-
-    try:
-        # Create the branch from current HEAD
-        subprocess.run(
-            ["git", "branch", branch_name],
-            capture_output=True,
-            check=False,  # Ignore if branch exists
-        )
-
-        # Create the worktree
-        subprocess.run(
-            ["git", "worktree", "add", worktree_path, branch_name],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        console.print(f"[green]✓ Created worktree at {worktree_path}[/green]")
-        return worktree_path
-
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]Failed to create worktree: {e.stderr}[/red]")
-        raise
-
-
-def _cleanup_worktree(worktree_path: str) -> None:
-    """Remove a git worktree."""
-    try:
-        subprocess.run(
-            ["git", "worktree", "remove", "--force", worktree_path],
-            capture_output=True,
-            check=True,
-        )
-        console.print(f"[green]✓ Removed worktree {worktree_path}[/green]")
-    except subprocess.CalledProcessError as e:
-        console.print(f"[yellow]Warning: Could not remove worktree: {e}[/yellow]")
 
 
 def _detect_input_type(pattern: str) -> str:
@@ -135,98 +82,143 @@ def _run_react_todo(
     in_place: bool = True,
 ):
     """Run ReAct todo resolution for a specific todo."""
-    # Get todos matching pattern
-    todos = _get_ready_todos(pattern)
+    # Phase 1: Discover todos
+    console.rule("[bold]Phase 1: Discovery[/bold]")
+    todos = []
+    
+    # Use get_ready_todos from service
+    todo_paths = get_ready_todos(pattern=pattern)
+    
+    for path in todo_paths:
+        parsed = parse_todo(path)
+        match = re.match(r"^(\d+)-ready-(.*)\.md$", os.path.basename(path))
+        if match:
+            todos.append({
+                "id": match.group(1),
+                "slug": match.group(2),
+                "path": path,
+                "frontmatter": parsed["frontmatter"],
+                "content": parsed["body"]
+            })
+
     if not todos:
-        console.print(f"[yellow]No todo found matching '{pattern}'[/yellow]")
+        console.print("[yellow]No ready todos found matching the criteria.[/yellow]")
         return
 
-    # Setup execution mode
+    # Phase 2: Setup worktree (if not in-place)
     worktree_path = None
-    if not in_place and not dry_run:
-        branch_name = _sanitize_branch_name(f"work-{pattern}-{len(todos)}-todos")
-        worktree_path = _create_worktree(branch_name)
-        base_dir = worktree_path
-    else:
-        base_dir = "."
+    branch_name = None
+    git_service = GitService()
 
-    # Define the resolution function for a single todo
-    def resolve_todo_task(todo: dict) -> dict:
-        """Resolve a single todo and return result."""
-        console.print(
-            f"\n[bold cyan]Resolving Todo {todo['id']}: {todo['slug']}[/bold cyan]"
-        )
-
-        if dry_run:
-            console.print("[yellow]DRY RUN: Would resolve this todo.[/yellow]")
-            return {"todo_id": todo["id"], "success": True, "dry_run": True}
+    if not dry_run and not in_place:
+        # Create branch name from todos
+        timestamp = "work" # Simplified timestamp or just generic
+        todo_ids = "-".join([t["id"] for t in todos[:3]])
+        branch_name = f"fix/todos-{todo_ids}"
+        branch_name = GitService.sanitize_branch_name(branch_name)
+        worktree_path = f"worktrees/{branch_name}"
 
         try:
-            # Initialize resolver with correct base_dir
-            resolver = ReActTodoResolver(base_dir=base_dir)
-
-            result = resolver(todo_content=todo["content"], todo_id=todo["id"])
-
-            if result.success_status:
-                console.print(f"[green]Success:[/green] {result.resolution_summary}")
-                # Mark todo complete in main repo (not worktree)
-                # Note: _mark_todo_complete uses absolute paths or relative to CWD (which is now main repo)
-                _mark_todo_complete(todo, result.resolution_summary)
-                
-                # Codify learnings from successful resolution
-                from utils.learning_extractor import codify_work_outcome
-                try:
-                    codify_work_outcome(
-                        todo_id=todo["id"],
-                        todo_slug=todo["slug"],
-                        resolution_summary=result.resolution_summary,
-                        operations_count=0,  # ReAct doesn't track operations count
-                        success=True
-                    )
-                except Exception:
-                    pass  # Don't fail resolution if codification fails
-                
-                return {
-                    "todo_id": todo["id"],
-                    "success": True,
-                    "summary": result.resolution_summary,
-                }
-            else:
-                console.print(f"[red]Failed:[/red] {result.resolution_summary}")
-                return {
-                    "todo_id": todo["id"],
-                    "success": False,
-                    "summary": result.resolution_summary,
-                }
-
-        except Exception as e:
-            console.print(f"[red]Error resolving todo {todo['id']}: {e}[/red]")
-            return {"todo_id": todo["id"], "success": False, "error": str(e)}
-
-    # Execute todos (parallel or sequential)
-    try:
-        if parallel and len(todos) > 1 and not dry_run:
+            git_service.create_feature_worktree(branch_name, worktree_path)
             console.print(
-                f"[dim]Executing {len(todos)} todos in parallel with {max_workers} workers[/dim]"
+                f"[green]Working in isolated worktree: {worktree_path}[/green]"
             )
-            with ThreadPoolExecutor(
-                max_workers=min(max_workers, len(todos))
-            ) as executor:
-                futures = {
-                    executor.submit(resolve_todo_task, todo): todo for todo in todos
-                }
-                results = []
-                for future in as_completed(futures):
-                    result = future.result()
-                    results.append(result)
-        else:
-            # Sequential execution
-            if len(todos) > 1:
-                console.print(f"[dim]Executing {len(todos)} todos sequentially[/dim]")
-            results = [resolve_todo_task(todo) for todo in todos]
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Could not create worktree, working in place: {e}[/yellow]"
+            )
+            worktree_path = None
+
+    # Phase 3: Execute
+    console.rule("[bold]Phase 3: Resolution[/bold]")
+
+    def resolve_todo_task(todo):
+        console.print(f"\n[bold cyan]Resolving Todo {todo['id']}: {todo['slug']}[/bold cyan]")
+        
+        if dry_run:
+            return {"status": "dry_run", "todo_id": todo["id"]}
+
+        try:
+            # Use ReAct resolver
+            resolver = ReActTodoResolver(
+                todo_content=todo["content"],
+                todo_id=todo["id"],
+                worktree_path=worktree_path
+            )
+            result = resolver.run()
+            
+            # Mark complete using service
+            complete_todo(
+                todo["path"],
+                resolution_summary=result.get("summary", "Resolved via ReAct"),
+                action_msg="Resolved via ReAct Agent"
+            )
+            
+            # Codify learnings from successful resolution
+            from utils.learning_extractor import codify_work_outcome
+            try:
+                codify_work_outcome(
+                    todo_id=todo["id"],
+                    todo_slug=todo["slug"],
+                    resolution_summary=result.get("summary", "Resolved via ReAct"),
+                    operations_count=0,  # ReAct doesn't track operations count
+                    success=True
+                )
+            except Exception:
+                pass  # Don't fail resolution if codification fails
+
+            return {"status": "success", "todo_id": todo["id"], "summary": result.get("summary")}
+        except Exception as e:
+            return {"status": "error", "todo_id": todo["id"], "error": str(e)}
+
+
+    try:
+        # Analyze dependencies
+        plan = analyze_dependencies(todos)
+        if plan["mermaid_diagram"]:
+            console.print(Panel(plan["mermaid_diagram"], title="Dependency Graph", border_style="dim"))
+
+        results = []
+
+        # Execute batches
+        for batch in plan["execution_order"]:
+            batch_ids = batch["todos"]
+            batch_todos = [t for t in todos if t["id"] in batch_ids]
+            
+            if not batch_todos:
+                continue
+                
+            console.print(f"\n[bold]Executing Batch {batch['batch']}[/bold] ({len(batch_todos)} todos)")
+            if "warning" in batch:
+                console.print(f"[yellow]Warning: {batch['warning']}[/yellow]")
+
+            try:
+                if parallel and batch["can_parallel"] and len(batch_todos) > 1 and not dry_run:
+                    console.print(
+                        f"[dim]Executing {len(batch_todos)} todos in parallel with {max_workers} workers[/dim]"
+                    )
+                    with ThreadPoolExecutor(
+                        max_workers=min(max_workers, len(batch_todos))
+                    ) as executor:
+                        futures = {
+                            executor.submit(resolve_todo_task, todo): todo for todo in batch_todos
+                        }
+                        for future in as_completed(futures):
+                            result = future.result()
+                            results.append(result)
+                else:
+                    # Sequential execution
+                    if len(batch_todos) > 1:
+                        console.print(f"[dim]Executing {len(batch_todos)} todos sequentially[/dim]")
+                    
+                    for todo in batch_todos:
+                        results.append(resolve_todo_task(todo))
+
+            except Exception as e:
+                console.print(f"[red]Error executing batch {batch['batch']}: {e}[/red]")
 
         # Summary
-        successful = sum(1 for r in results if r.get("success"))
+        successful = sum(1 for r in results if r.get("status") == "success")
         console.print(
             f"\n[bold]Summary:[/bold] {successful}/{len(results)} todos resolved successfully"
         )
@@ -234,7 +226,7 @@ def _run_react_todo(
     finally:
         # Cleanup worktree if used
         if worktree_path and not dry_run:
-            _cleanup_worktree(worktree_path)
+            git_service.cleanup_worktree(worktree_path)
 
 
 def _run_react_todo_batch(

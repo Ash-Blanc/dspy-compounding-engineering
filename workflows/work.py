@@ -127,18 +127,18 @@ def run_work(plan_file: str) -> None:
                 "  [cyan]uv run python cli.py work plans/my-feature.md[/cyan]"
             )
             console.print(
-                "\n[bold]To resolve todos, use the 'resolve-todo' command:[/bold]"
+                "\n[bold]To resolve todos, use the 'work' command with a todo ID or pattern:[/bold]"
             )
             if re.match(r"^\d+$", plan_file):
                 console.print(
-                    f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve todo #{plan_file}[/dim]"
+                    f"  [cyan]uv run python cli.py work {plan_file}[/cyan]  [dim]# Resolve todo #{plan_file}[/dim]"
                 )
             elif plan_file.lower() in ["p1", "p2", "p3"]:
                 console.print(
-                    f"  [cyan]uv run python cli.py resolve-todo {plan_file}[/cyan]  [dim]# Resolve all {plan_file.upper()} todos[/dim]"
+                    f"  [cyan]uv run python cli.py work {plan_file}[/cyan]  [dim]# Resolve all {plan_file.upper()} todos[/dim]"
                 )
             console.print(
-                "  [cyan]uv run python cli.py resolve-todo[/cyan]  [dim]# Resolve all ready todos[/dim]"
+                "  [cyan]uv run python cli.py work p1[/cyan]  [dim]# Resolve all P1 todos[/dim]"
             )
         else:
             console.print(

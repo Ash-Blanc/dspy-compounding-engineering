@@ -9,7 +9,11 @@ import os
 import re
 import glob
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any, Callable
+import yaml
+import frontmatter
+from filelock import FileLock
+import shutil
 
 
 def get_next_issue_id(todos_dir: str = "todos") -> int:
@@ -154,3 +158,323 @@ Source: Automated code review
         f.write(content)
 
     return filepath
+
+
+def parse_todo(file_path: str) -> dict:
+    """
+    Parse a todo file and return its frontmatter and body.
+
+    Args:
+        file_path: Path to the todo file
+
+    Returns:
+        Dict containing 'frontmatter' (dict) and 'body' (str)
+    """
+    with open(file_path, "r") as f:
+        post = frontmatter.load(f)
+
+    return {"frontmatter": post.metadata, "body": post.content}
+
+
+def serialize_todo(frontmatter_dict: dict, body: str) -> str:
+    """
+    Serialize frontmatter and body back into a string.
+
+    Args:
+        frontmatter_dict: Dictionary of YAML frontmatter
+        body: Content body
+
+    Returns:
+        String representation of the file
+    """
+    # Use frontmatter.dumps but ensure it uses the format we want
+    # frontmatter.dumps can sometimes be finicky with formatting, so we might want
+    # to do it manually to preserve style if needed, but let's try standard first.
+    post = frontmatter.Post(body, **frontmatter_dict)
+    return frontmatter.dumps(post)
+
+
+def atomic_update_todo(
+    file_path: str, update_fn: Callable[[dict, str], tuple[dict, str]]
+) -> bool:
+    """
+    Atomically update a todo file using a file lock.
+
+    Args:
+        file_path: Path to the todo file
+        update_fn: Function that takes (frontmatter, body) and returns (new_frontmatter, new_body)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    lock_path = f"{file_path}.lock"
+    lock = FileLock(lock_path, timeout=10)
+
+    try:
+        with lock:
+            if not os.path.exists(file_path):
+                return False
+
+            parsed = parse_todo(file_path)
+            new_frontmatter, new_body = update_fn(parsed["frontmatter"], parsed["body"])
+            new_content = serialize_todo(new_frontmatter, new_body)
+
+            # Write to temp file first
+            tmp_path = f"{file_path}.tmp"
+            with open(tmp_path, "w") as f:
+                f.write(new_content)
+
+            # Atomic rename
+            os.replace(tmp_path, file_path)
+            return True
+    except Exception as e:
+        print(f"Error updating todo {file_path}: {e}")
+        if os.path.exists(f"{file_path}.tmp"):
+            os.remove(f"{file_path}.tmp")
+        return False
+    finally:
+        if os.path.exists(lock_path):
+            try:
+                os.remove(lock_path)
+            except OSError:
+                pass
+
+
+def add_work_log_entry(content: str, action: str) -> str:
+    """
+    Add a work log entry to the todo content.
+
+    Args:
+        content: Existing markdown content
+        action: Description of the action taken
+
+    Returns:
+        Updated content with new work log entry
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    log_entry = f"""
+### {today} - {action}
+
+**By:** AI Agent
+
+**Actions:**
+- {action}
+"""
+    # Find the Work Log section
+    if "## Work Log" in content:
+        # Append after the header
+        parts = content.split("## Work Log")
+        return f"{parts[0]}## Work Log\n{log_entry}{parts[1]}"
+    else:
+        # Append to end if not found
+        return f"{content}\n\n## Work Log\n{log_entry}"
+
+
+def get_ready_todos(todos_dir: str = "todos", pattern: Optional[str] = None) -> List[str]:
+    """
+    Find all ready todos in the todos directory, optionally filtered by pattern.
+
+    Args:
+        todos_dir: Directory containing todos
+        pattern: Optional regex pattern to filter filenames
+
+    Returns:
+        List of absolute file paths
+    """
+    if not os.path.exists(todos_dir):
+        return []
+
+    files = glob.glob(os.path.join(todos_dir, "*.md"))
+    ready_todos = []
+
+    for f in files:
+        if pattern and not re.search(pattern, os.path.basename(f)):
+            continue
+
+        try:
+            parsed = parse_todo(f)
+            fm = parsed["frontmatter"]
+            if fm.get("status") == "ready":
+                ready_todos.append(os.path.abspath(f))
+        except Exception:
+            continue
+
+    return sorted(ready_todos)
+
+
+def complete_todo(
+    file_path: str,
+    resolution_summary: str,
+    action_msg: str = "Task Completed",
+    new_status: str = "completed",
+    rename_to_complete: bool = True,
+) -> str:
+    """
+    Mark a todo as complete, update its content, and optionally rename it.
+
+    Args:
+        file_path: Path to the todo file
+        resolution_summary: Summary of what was done
+        action_msg: Short action message for the log
+        new_status: New status string (default: "completed")
+        rename_to_complete: If True, rename file from *-ready-* or *-pending-* to *-complete-*
+
+    Returns:
+        Path to the (possibly new) todo file
+    """
+    if not os.path.exists(file_path):
+        return file_path
+
+    parsed = parse_todo(file_path)
+    fm = parsed["frontmatter"]
+    body = parsed["body"]
+
+    # Update status
+    fm["status"] = new_status
+
+    # Update checkboxes if they exist (simple string replacement)
+    body = body.replace("- [ ] Issue addressed", "- [x] Issue addressed")
+    body = body.replace("- [ ] Tests pass", "- [x] Tests pass")
+    body = body.replace("- [ ] Code reviewed", "- [x] Code reviewed")
+
+    # Add Resolution Summary if not present
+    if "## Resolution" not in body and "## Resolution Summary" not in body:
+        body += f"\n\n## Resolution\n\n{resolution_summary}\n"
+
+    # Add Work Log
+    body = add_work_log_entry(body, action_msg)
+
+    new_content = serialize_todo(fm, body)
+
+    # Determine new path
+    new_path = file_path
+    if rename_to_complete:
+        dir_name = os.path.dirname(file_path)
+        base_name = os.path.basename(file_path)
+        # Replace status indicators in filename
+        new_base = base_name.replace("-ready-", "-complete-").replace(
+            "-pending-", "-complete-"
+        )
+        if new_base != base_name:
+            new_path = os.path.join(dir_name, new_base)
+
+    # Write new file
+    with open(new_path, "w") as f:
+        f.write(new_content)
+
+    # Remove old file if renamed
+    if new_path != file_path:
+        os.remove(file_path)
+
+    return new_path
+
+
+def analyze_dependencies(todos: List[dict]) -> dict:
+    """
+    Analyze dependencies between todos and create execution plan.
+    
+    Args:
+        todos: List of todo dictionaries with 'id' and 'frontmatter'
+        
+    Returns:
+        Dict containing execution_order (batches) and mermaid_diagram
+    """
+    if not todos:
+        return {"execution_order": [], "mermaid_diagram": ""}
+
+    # Build dependency graph
+    graph = {t["id"]: set() for t in todos}
+    id_to_todo = {t["id"]: t for t in todos}
+    
+    for todo in todos:
+        deps = todo["frontmatter"].get("dependencies", [])
+        for dep in deps:
+            dep_id = str(dep)
+            if dep_id in graph:
+                graph[todo["id"]].add(dep_id)
+
+    # Topological sort (Kahn's algorithm)
+    in_degree = {t_id: 0 for t_id in graph}
+    for t_id in graph:
+        for dep in graph[t_id]:
+            in_degree[t_id] += 1
+
+    queue = [t_id for t_id in graph if in_degree[t_id] == 0]
+    batches = []
+    
+    while queue:
+        # Current batch can be executed in parallel
+        current_batch = sorted(queue) # Sort for deterministic order
+        batches.append({
+            "batch": len(batches) + 1,
+            "todos": current_batch,
+            "can_parallel": True
+        })
+        
+        # Remove current batch from graph
+        next_queue = []
+        for t_id in current_batch:
+            # Find nodes that depend on t_id (reverse graph needed or iterate)
+            # Since we have forward graph (A depends on B), we need to find who depends on A?
+            # Wait, graph[A] = {B} means A depends on B.
+            # So if B is done, we can potentially do A.
+            # But Kahn's usually works on "A -> B" meaning A comes before B.
+            # Here "A depends on B" means B must be done before A.
+            # So edge is B -> A.
+            pass
+            
+        # Let's rebuild graph as "Prerequisite -> Dependent"
+        # If A depends on B, then B -> A
+        forward_graph = {t["id"]: set() for t in todos}
+        in_degree = {t["id"]: 0 for t in todos}
+        
+        for todo in todos:
+            deps = todo["frontmatter"].get("dependencies", [])
+            for dep in deps:
+                dep_id = str(dep)
+                if dep_id in id_to_todo:
+                    forward_graph[dep_id].add(todo["id"])
+                    in_degree[todo["id"]] += 1
+        
+        queue = [t_id for t_id in todos if in_degree[t["id"]] == 0]
+        batches = []
+        
+        processed_count = 0
+        while queue:
+            current_batch = sorted(queue)
+            batches.append({
+                "batch": len(batches) + 1,
+                "todos": current_batch,
+                "can_parallel": True
+            })
+            processed_count += len(current_batch)
+            
+            next_queue = []
+            for t_id in current_batch:
+                for dependent in forward_graph[t_id]:
+                    in_degree[dependent] -= 1
+                    if in_degree[dependent] == 0:
+                        next_queue.append(dependent)
+            queue = next_queue
+
+        if processed_count < len(todos):
+            # Cycle detected or missing dependencies
+            remaining = [t["id"] for t in todos if in_degree[t["id"]] > 0]
+            batches.append({
+                "batch": len(batches) + 1,
+                "todos": remaining,
+                "can_parallel": False,
+                "warning": "Cycle detected or missing dependencies"
+            })
+
+        # Generate Mermaid diagram
+        mermaid = ["flowchart TD"]
+        for t_id in forward_graph:
+            mermaid.append(f"  T{t_id}[Todo {t_id}]")
+            for dep in forward_graph[t_id]:
+                mermaid.append(f"  T{t_id} --> T{dep}")
+        
+        return {
+            "execution_order": batches,
+            "mermaid_diagram": "\n".join(mermaid)
+        }

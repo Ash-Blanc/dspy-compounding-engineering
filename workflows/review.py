@@ -18,64 +18,11 @@ from agents.review import (
 )
 from utils.todo_service import create_finding_todo
 from utils.kb_module import KBPredict
+from utils.project_context import ProjectContext
 
 console = Console()
 
 
-def _gather_project_files() -> str:
-    """Gather all relevant project files for full project review."""
-    project_content = []
-
-    # File extensions to include
-    code_extensions = {
-        ".py",
-        ".js",
-        ".ts",
-        ".tsx",
-        ".jsx",
-        ".rb",
-        ".go",
-        ".rs",
-        ".java",
-        ".kt",
-    }
-    config_extensions = {".toml", ".yaml", ".yml", ".json"}
-
-    # Directories to skip
-    skip_dirs = {
-        ".git",
-        ".venv",
-        "venv",
-        "node_modules",
-        "__pycache__",
-        ".pytest_cache",
-        "dist",
-        "build",
-        ".tox",
-        ".mypy_cache",
-        "worktrees",
-        ".ruff_cache",
-    }
-
-    for root, dirs, files in os.walk("."):
-        # Filter out skip directories
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
-
-        for filename in files:
-            ext = os.path.splitext(filename)[1].lower()
-            if ext in code_extensions or ext in config_extensions:
-                filepath = os.path.join(root, filename)
-                try:
-                    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
-                        # Skip very large files
-                        if len(content) > 50000:
-                            content = content[:50000] + "\n...[truncated]..."
-                        project_content.append(f"=== {filepath} ===\n{content}\n")
-                except Exception:
-                    pass
-
-    return "\n".join(project_content)
 
 
 def run_review(pr_url_or_id: str, project: bool = False):
@@ -101,7 +48,8 @@ def run_review(pr_url_or_id: str, project: bool = False):
         if project:
             # Full project review - gather all source files
             console.print("[cyan]Gathering project files...[/cyan]")
-            code_diff = _gather_project_files()
+            context_service = ProjectContext()
+            code_diff = context_service.gather_project_files()
             if not code_diff:
                 console.print("[red]No source files found to review![/red]")
                 return

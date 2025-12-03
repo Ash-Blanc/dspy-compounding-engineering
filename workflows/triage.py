@@ -13,33 +13,17 @@ from filelock import FileLock
 import tempfile
 import frontmatter
 from utils.kb_module import KBPredict
+from utils.todo_service import (
+    parse_todo,
+    serialize_todo,
+    add_work_log_entry,
+    complete_todo,
+    atomic_update_todo
+)
 
 console = Console()
 
 
-def parse_todo(file_path: str) -> dict:
-    post = frontmatter.load(file_path)
-    return {"frontmatter": dict(post.metadata), "body": post.content}
-
-
-def serialize_todo(frontmatter_dict: dict, body: str) -> str:
-    fm_yaml = yaml.dump(frontmatter_dict, default_flow_style=False, sort_keys=False)
-    return f"---\n{fm_yaml}\n---\n{body}"
-
-
-def atomic_update_todo(old_path: str, new_path: str, update_fn: callable) -> None:
-    lock_path = old_path + ".lock"
-    with FileLock(lock_path):
-        parsed = parse_todo(old_path)
-        updated = update_fn(parsed)
-        content = serialize_todo(updated["frontmatter"], updated["body"])
-        with tempfile.NamedTemporaryFile(
-            mode="w", dir=os.path.dirname(new_path), delete=False, suffix=".md"
-        ) as temp_f:
-            temp_f.write(content)
-            temp_path = temp_f.name
-        os.replace(temp_path, new_path)
-        os.remove(old_path)
 
 
 def consistency_check_todos(todos_dir: str) -> None:
@@ -58,33 +42,6 @@ def consistency_check_todos(todos_dir: str) -> None:
     console.print("[green]Consistency check passed.[/green]")
 
 
-def _add_work_log_entry(content: str, action: str) -> str:
-    """Add a work log entry to the todo content."""
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    work_log_entry = f"""
-### {today} - Approved for Work
-
-**By:** Triage System
-
-**Actions:**
-- {action}
-- Status changed from pending → ready
-- Ready to be picked up and worked on
-
-**Learnings:**
-- Approved during triage session
-"""
-
-    # Find the Work Log section and append
-    if "## Work Log" in content:
-        # Insert after the Work Log header
-        parts = content.split("## Work Log")
-        if len(parts) == 2:
-            return parts[0] + "## Work Log" + work_log_entry + parts[1]
-
-    # If no work log section, append at end
-    return content + "\n" + work_log_entry
 
 
 def _fill_recommended_action(content: str, solution_text: str = None) -> str:
@@ -101,36 +58,6 @@ def _fill_recommended_action(content: str, solution_text: str = None) -> str:
     return content.replace(placeholder, recommendation)
 
 
-def _auto_complete_todo(
-    file_path: str,
-    new_filename: str,
-    resolution_summary: str,
-    action_msg: str,
-    print_msg: str,
-) -> None:
-    todos_dir = "todos"
-    new_path = os.path.join(todos_dir, new_filename)
-
-    def update_complete(parsed):
-        fm = dict(parsed["frontmatter"])
-        fm["status"] = "complete"
-        new_body = parsed["body"]
-        resolution_section = textwrap.dedent(f"""
-            ## Resolution Summary
-
-            **Status:** ✅ Resolved
-
-            **Summary:** {resolution_summary}
-        """)
-        if "## Resolution Summary" not in new_body:
-            new_body = resolution_section + "\n" + new_body
-        temp_full = serialize_todo(fm, new_body)
-        updated_full = _add_work_log_entry(temp_full, action_msg)
-        post = frontmatter.loads(updated_full)
-        return {"frontmatter": dict(post.metadata), "body": post.content}
-
-    atomic_update_todo(file_path, new_path, update_complete)
-    console.print(f"[green]✅ {print_msg}: {new_filename} - Status: complete[/green]")
 
 
 def run_triage():
@@ -220,14 +147,13 @@ def run_triage():
             console.print("[dim]🤖 Auto-completing: No action required[/dim]")
 
             if "-pending-" in filename:
-                new_filename = filename.replace("-pending-", "-complete-")
-                _auto_complete_todo(
+                complete_todo(
                     file_path,
-                    new_filename,
-                    "Automatically marked as complete - no action required based on finding analysis.",
-                    "Auto-completed during triage (no action required)",
-                    "Auto-Completed",
+                    resolution_summary="Automatically marked as complete - no action required based on finding analysis.",
+                    action_msg="Auto-completed during triage (no action required)",
+                    rename_to_complete=True
                 )
+                console.print(f"[green]✅ Auto-Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]")
             continue
 
         remaining = total_items - idx + 1
@@ -254,7 +180,7 @@ def run_triage():
                 )
                 new_content = _fill_recommended_action(new_content, solution)
 
-                new_content = _add_work_log_entry(
+                new_content = add_work_log_entry(
                     new_content, "Issue approved during triage session"
                 )
 
@@ -280,14 +206,13 @@ def run_triage():
                     pass  # Don't fail triage if codification fails
         elif choice == "complete":
             if "-pending-" in filename:
-                new_filename = filename.replace("-pending-", "-complete-")
-                _auto_complete_todo(
+                complete_todo(
                     file_path,
-                    new_filename,
-                    "Marked as complete during triage (no action required).",
-                    "Issue marked complete during triage (no action required)",
-                    "Completed",
+                    resolution_summary="Marked as complete during triage (no action required).",
+                    action_msg="Issue marked complete during triage (no action required)",
+                    rename_to_complete=True
                 )
+                console.print(f"[green]✅ Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]")
             else:
                 console.print(f"[red]Error: Expected '-pending-' in {filename}[/red]")
         elif choice == "all":
@@ -320,7 +245,7 @@ def run_triage():
                     )
                     new_content = _fill_recommended_action(new_content, solution)
 
-                    new_content = _add_work_log_entry(
+                    new_content = add_work_log_entry(
                         new_content, "Issue approved (batch accept all)"
                     )
 
@@ -378,7 +303,7 @@ def run_triage():
                 )
                 new_content = _fill_recommended_action(new_content, solution)
 
-                new_content = _add_work_log_entry(
+                new_content = add_work_log_entry(
                     new_content, f"Issue approved with custom priority: {new_priority}"
                 )
 

@@ -1,5 +1,11 @@
 # Compounding Engineering Plugin (DSPy Edition)
 
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)
+![DSPy](https://img.shields.io/badge/DSPy-Powered-blueviolet)
+![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)
+
 A Python implementation of the [Compounding Engineering Plugin](https://github.com/EveryInc/compounding-engineering-plugin) using [DSPy](https://github.com/stanfordnlp/dspy).
 
 ## What Is Compounding Engineering?
@@ -236,24 +242,34 @@ uv run python cli.py codify "Use factory pattern for agent creation" --source re
 
 ## Architecture
 
-```text
-dspy-compounding-engineering/
-├── agents/                  # DSPy Signatures
-│   ├── review/              # 10+ Review Agents
-│   ├── research/            # Research & Analysis Agents
-│   └── workflow/            # Execution & Triage Agents
-├── workflows/               # Command Logic
-│   ├── review.py            # Parallel review orchestration
-│   ├── work_unified.py      # AI-powered unified todo/plan execution (replaces resolve_todo)
-│   ├── generate_command.py  # Natural language → shell commands
-│   ├── work.py              # Secure worktree execution
-│   └── plan.py              # Research & planning
-├── utils/                   # Core Utilities
-│   ├── git_service.py       # Git & Worktree management
-│   ├── safe_io.py           # Secure file operations
-│   └── todo_service.py      # Structured todo generation
-└── cli.py                   # Typer CLI entry point
-```
+The system is built on a layered architecture designed for modularity and compounding intelligence:
+
+### 1. Interface Layer (CLI)
+- **Entry Point**: `cli.py` uses `Typer` to provide a robust command-line interface.
+- **Commands**: Maps user intents (e.g., `review`, `work`) to specific workflows.
+
+### 2. Orchestration Layer (Workflows)
+- **Logic**: Python scripts in `workflows/` orchestrate complex multi-step processes.
+- **Responsibility**: Manages state, handles user interaction, and coordinates agents.
+- **Key Workflows**:
+    - **Unified Work**: Combines planning and execution using ReAct loops.
+    - **Review Pipeline**: Parallelizes multiple specialized review agents.
+    - **Triage System**: Manages findings and prioritizes work.
+
+### 3. Intelligence Layer (DSPy Agents)
+- **Signatures**: Declarative definitions of AI tasks in `agents/`.
+- **Modules**: `dspy.Module` implementations that chain thoughts and actions.
+- **Optimization**: Agents are optimized via DSPy teleprompters.
+
+### 4. Knowledge Layer (Compounding Engine)
+- **Storage**: JSON-based knowledge base in `.knowledge/`.
+- **Retrieval**: `KBPredict` wrapper automatically injects relevant context into agent calls.
+- **Learning**: `LearningExtractor` codifies outcomes from every task into reusable patterns.
+
+### 5. Infrastructure Layer (Utilities)
+- **Git Service**: Manages isolated worktrees for safe execution.
+- **Project Context**: Efficiently gathers and token-limits codebase context.
+- **Todo Service**: Standardizes the unit of work (Markdown-based todos).
 
 ## Philosophy
 

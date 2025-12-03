@@ -52,3 +52,4 @@ todos/
 plans/
 worktrees/
 *.log
+.knowledge/
