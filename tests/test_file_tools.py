@@ -20,8 +20,10 @@ def test_list_directory(temp_dir):
     (temp_dir / "file1.txt").touch()
     (temp_dir / "subdir").mkdir()
 
-    result = list_directory(str(temp_dir), base_dir=str(temp_dir.parent))
-    assert "file1.txt" in result or "file1" in result
+    # Pass relative path "." and set base_dir to temp_dir
+    result = list_directory(".", base_dir=str(temp_dir))
+    assert "file1.txt" in result
+    assert "subdir/" in result
 
 
 @pytest.mark.unit
@@ -32,9 +34,47 @@ def test_read_file_range(temp_dir):
     test_file = temp_dir / "test.txt"
     test_file.write_text("Line 1\nLine 2\nLine 3\n")
 
+    # Use relative path "test.txt"
     result = read_file_range(
-        str(test_file), start_line=1, end_line=2, base_dir=str(temp_dir.parent)
+        "test.txt", start_line=1, end_line=2, base_dir=str(temp_dir)
     )
-    assert (
-        "Line 1" in result or "Error" in result
-    )  # May fail due to base_dir validation
+    assert "Line 1" in result
+    assert "Line 2" in result
+
+
+@pytest.mark.unit
+def test_safe_write_overwrite(temp_dir):
+    """Test safe_write overwrite behavior."""
+    from utils.safe_io import safe_write
+    import pytest
+
+    test_file = temp_dir / "test.txt"
+    test_file.write_text("Original", encoding="utf-8")
+
+    # Overwrite=True (default)
+    safe_write("test.txt", "New", base_dir=str(temp_dir))
+    assert test_file.read_text(encoding="utf-8") == "New"
+
+    # Overwrite=False
+    with pytest.raises(FileExistsError):
+        safe_write("test.txt", "Another", base_dir=str(temp_dir), overwrite=False)
+    
+    assert test_file.read_text(encoding="utf-8") == "New"
+
+
+@pytest.mark.unit
+def test_create_file(temp_dir):
+    """Test create_file function."""
+    from utils.file_tools import create_file
+
+    test_file = temp_dir / "new_file.txt"
+
+    # Success
+    result = create_file("new_file.txt", "Content", base_dir=str(temp_dir))
+    assert "Successfully created" in result
+    assert test_file.read_text(encoding="utf-8") == "Content"
+
+    # Failure (exists)
+    result = create_file("new_file.txt", "New Content", base_dir=str(temp_dir))
+    assert "Error: File already exists" in result
+    assert test_file.read_text(encoding="utf-8") == "Content"

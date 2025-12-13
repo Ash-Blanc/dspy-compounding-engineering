@@ -65,56 +65,21 @@ class ReActTodoResolver(dspy.Module):
     def __init__(self, base_dir: str = "."):
         super().__init__()
 
-        # Define tools with base_dir bound
-        from functools import partial
-
-        self.tools = [
-            partial(list_directory, base_dir=base_dir),
-            partial(search_files, base_dir=base_dir),
-            partial(read_file_range, base_dir=base_dir),
-            partial(edit_file_lines, base_dir=base_dir),
-            partial(create_file, base_dir=base_dir),
-        ]
-
-        # Update tool names and docstrings to match originals (needed for dspy)
-        # Update tool names and docstrings to match originals (needed for dspy)
-        from rich.console import Console
-
-        console = Console()
-
-        def make_logged_tool(tool_func):
-            # functools.wraps fails on partials, so we manually wrap
+        # Define tools with base_dir bound and metadata preserved
+        def bind_tool(func):
             def wrapper(*args, **kwargs):
-                # Format args for display
-                args_str = ", ".join([str(a) for a in args])
-                kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
-                all_args = ", ".join(filter(None, [args_str, kwargs_str]))
+                return func(*args, base_dir=base_dir, **kwargs)
 
-                # Truncate long args
-                if len(all_args) > 100:
-                    all_args = all_args[:97] + "..."
-
-                console.print(
-                    f"[dim]  → ReAct Tool: {tool_func.__name__ if hasattr(tool_func, '__name__') else 'partial'}({all_args})[/dim]"
-                )
-                return tool_func(*args, **kwargs)
-
-            # Manually copy metadata from the real function
-            real_func = tool_func
-            while isinstance(real_func, functools.partial):
-                real_func = real_func.func
-
-            wrapper.__name__ = real_func.__name__
-            wrapper.__doc__ = real_func.__doc__
-
+            wrapper.__name__ = func.__name__
+            wrapper.__doc__ = func.__doc__
             return wrapper
 
         self.tools = [
-            make_logged_tool(partial(list_directory, base_dir=base_dir)),
-            make_logged_tool(partial(search_files, base_dir=base_dir)),
-            make_logged_tool(partial(read_file_range, base_dir=base_dir)),
-            make_logged_tool(partial(edit_file_lines, base_dir=base_dir)),
-            make_logged_tool(partial(create_file, base_dir=base_dir)),
+            bind_tool(list_directory),
+            bind_tool(search_files),
+            bind_tool(read_file_range),
+            bind_tool(edit_file_lines),
+            bind_tool(create_file),
         ]
 
         # Create ReAct agent
