@@ -25,8 +25,6 @@ from utils.todo_service import create_finding_todo
 console = Console()
 
 
-
-
 def run_review(pr_url_or_id: str, project: bool = False):
     """
     Perform exhaustive multi-agent code review.
@@ -101,11 +99,12 @@ def run_review(pr_url_or_id: str, project: bool = False):
             return
 
         # Truncate if too large (simple safety check)
-        if len(code_diff) > 100000:
+        MAX_DIFF_SIZE = 50000
+        if len(code_diff) > MAX_DIFF_SIZE:
             console.print(
-                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating...[/yellow]"
+                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating to {MAX_DIFF_SIZE}...[/yellow]"
             )
-            code_diff = code_diff[:100000] + "\n...[truncated]..."
+            code_diff = code_diff[:MAX_DIFF_SIZE] + "\n...[truncated]..."
 
     except Exception as e:
         console.print(f"[red]Error fetching content: {e}[/red]")
@@ -174,25 +173,80 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
                     # Extract the review from the result
                     review_text = None
-                    # Check all possible output fields
-                    for field in [
-                        "review_comments",
-                        "security_report",
-                        "performance_analysis",
-                        "data_integrity_report",
-                        "architecture_analysis",
-                        "pattern_analysis",
-                        "simplification_analysis",
-                        "dhh_review",
-                    ]:
-                        if hasattr(result, field):
-                            review_text = getattr(result, field)
-                            break
+                    action_required_val = None
+
+                    # NEW: specialized handling for SecuritySentinel (typed)
+                    # Handle both spaced and unspaced names to be safe
+                    if name in ["SecuritySentinel", "Security Sentinel"] and hasattr(
+                        result, "security_report"
+                    ):
+                        report = result.security_report
+                        # Check if it's a Pydantic model (it should be)
+                        if hasattr(report, "model_dump"):
+                            data = report.model_dump()
+                            action_required_val = data.get("action_required", None)
+
+                            # Convert structured report back to markdown for todo creation
+                            title_block = f"# Security Audit: {data.get('executive_summary', 'Report')}\n\n"
+                            matrix_block = (
+                                f"## Risk Matrix\n{data.get('risk_matrix', 'N/A')}\n\n"
+                            )
+
+                            findings_block = "## Detailed Findings\n"
+                            for f in data.get("findings", []):
+                                findings_block += f"### {f.get('title', 'Untitled')}\n"
+                                findings_block += (
+                                    f"- **Severity**: {f.get('severity')}\n"
+                                )
+                                findings_block += (
+                                    f"- **Description**: {f.get('description')}\n"
+                                )
+                                findings_block += (
+                                    f"- **Location**: {f.get('location')}\n"
+                                )
+                                findings_block += f"- **Impact**: {f.get('impact')}\n"
+                                findings_block += (
+                                    f"- **Remediation**: {f.get('remediation')}\n\n"
+                                )
+
+                            review_text = title_block + matrix_block + findings_block
+                        else:
+                            # Fallback if somehow not pydantic
+                            review_text = str(report)
+
+                    else:
+                        # Existing logic for other agents
+                        # Check all possible output fields
+                        for field in [
+                            "review_comments",
+                            "security_report",
+                            "performance_analysis",
+                            "data_integrity_report",
+                            "architecture_analysis",
+                            "pattern_analysis",
+                            "simplification_analysis",
+                            "dhh_review",
+                        ]:
+                            if hasattr(result, field):
+                                val = getattr(result, field)
+                                # SAFETY: Ensure we never look at a raw object as a string
+                                if hasattr(val, "model_dump"):
+                                    # It's a Pydantic model we didn't expect? Dump it to JSON/String
+                                    import json
+                                    review_text = f"```json\n{json.dumps(val.model_dump(), indent=2)}\n```"
+                                else:
+                                    review_text = str(val)
+                                break
 
                     if review_text:
                         finding_data = {"agent": name, "review": review_text}
-                        if hasattr(result, "action_required"):
+
+                        # Use extracted action_required if available, else look on result object
+                        if action_required_val is not None:
+                            finding_data["action_required"] = action_required_val
+                        elif hasattr(result, "action_required"):
                             finding_data["action_required"] = result.action_required
+
                         findings.append(finding_data)
 
                 except Exception as e:
@@ -336,13 +390,11 @@ def run_review(pr_url_or_id: str, project: bool = False):
     # Extract and codify learnings from the review
     if findings:
         from utils.learning_extractor import codify_review_findings
-        
+
         try:
             codify_review_findings(findings, len(created_todos))
         except Exception as e:
-            console.print(
-                f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]"
-            )
+            console.print(f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]")
 
     # Cleanup worktree
     if worktree_path and os.path.exists(worktree_path):

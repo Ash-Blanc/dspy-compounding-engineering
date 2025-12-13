@@ -1,6 +1,8 @@
 import dspy
+import functools
 
 from utils.file_tools import (
+    create_file,
     edit_file_lines,
     list_directory,
     read_file_range,
@@ -39,18 +41,24 @@ class TodoResolutionSignature(dspy.Signature):
     - search_files(query, path, regex): Search for string/regex in files.
     - read_file_range(file_path, start_line, end_line): Read specific lines.
     - edit_file_lines(file_path, edits): Edit specific lines. 'edits' is a list of dicts with 'start_line', 'end_line', 'content'.
+    - create_file(file_path, content): Create a new file with content.
+
+    CRITICAL: When using edit_file_lines, the 'content' MUST NOT include the surrounding lines (context) unless you INTEND to duplicate them.
+    - If you want to replace line 10, 'edits' should be [{'start_line': 10, 'end_line': 10, 'content': 'new_line_10_content'}].
+    - DO NOT include lines 9 or 11 in 'content' unless you are changing them too.
+    - TRIPLE QUOTES (''') HAZARD: When editing docstrings or multiline strings, be careful not to break the tool call syntax.
     """
 
     todo_content: str = dspy.InputField(desc="Content of the todo file")
     todo_id: str = dspy.InputField(desc="Unique identifier of the todo")
 
     resolution_summary: str = dspy.OutputField(desc="What was accomplished")
-    files_modified: str = dspy.OutputField(desc="List of files that were changed")
+    files_modified: list[str] = dspy.OutputField(desc="List of files that were changed")
     reasoning_trace: str = dspy.OutputField(desc="Step-by-step ReAct reasoning process")
-    verification_status: str = dspy.OutputField(
-        desc="Verification results for each modified file. For structured files (TOML/YAML/JSON/Python), confirm syntax is valid. Format: 'filename: verified (syntax valid)' or 'filename: FAILED (syntax error: details)'"
+    verification_status: dict[str, str] = dspy.OutputField(
+        desc="Verification results for each modified file. Key=filename, Value=status (verified/FAILED)"
     )
-    success_status: str = dspy.OutputField(desc="Whether resolution was successful")
+    success_status: bool = dspy.OutputField(desc="Whether resolution was successful")
 
 
 class ReActTodoResolver(dspy.Module):
@@ -65,13 +73,49 @@ class ReActTodoResolver(dspy.Module):
             partial(search_files, base_dir=base_dir),
             partial(read_file_range, base_dir=base_dir),
             partial(edit_file_lines, base_dir=base_dir),
+            partial(create_file, base_dir=base_dir),
         ]
 
         # Update tool names and docstrings to match originals (needed for dspy)
-        for tool in self.tools:
-            if hasattr(tool, "func"):
-                tool.__name__ = tool.func.__name__
-                tool.__doc__ = tool.func.__doc__
+        # Update tool names and docstrings to match originals (needed for dspy)
+        from rich.console import Console
+
+        console = Console()
+
+        def make_logged_tool(tool_func):
+            # functools.wraps fails on partials, so we manually wrap
+            def wrapper(*args, **kwargs):
+                # Format args for display
+                args_str = ", ".join([str(a) for a in args])
+                kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+                all_args = ", ".join(filter(None, [args_str, kwargs_str]))
+
+                # Truncate long args
+                if len(all_args) > 100:
+                    all_args = all_args[:97] + "..."
+
+                console.print(
+                    f"[dim]  → ReAct Tool: {tool_func.__name__ if hasattr(tool_func, '__name__') else 'partial'}({all_args})[/dim]"
+                )
+                return tool_func(*args, **kwargs)
+
+            # Manually copy metadata from the real function
+            real_func = tool_func
+            while isinstance(real_func, functools.partial):
+                real_func = real_func.func
+
+            wrapper.__name__ = real_func.__name__
+            wrapper.__doc__ = real_func.__doc__
+
+            return wrapper
+
+        self.tools = [
+            make_logged_tool(partial(list_directory, base_dir=base_dir)),
+            make_logged_tool(partial(search_files, base_dir=base_dir)),
+            make_logged_tool(partial(read_file_range, base_dir=base_dir)),
+            make_logged_tool(partial(edit_file_lines, base_dir=base_dir)),
+            make_logged_tool(partial(create_file, base_dir=base_dir)),
+        ]
 
         # Create ReAct agent
         self.react_agent = dspy.ReAct(

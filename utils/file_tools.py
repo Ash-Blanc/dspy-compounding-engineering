@@ -185,3 +185,19 @@ def edit_file_lines(
 
     except Exception as e:
         return f"Error editing file: {str(e)}"
+
+
+def create_file(file_path: str, content: str, base_dir: str = ".") -> str:
+    """
+    Create a new file with the given content.
+    Fails if file already exists.
+    """
+    try:
+        safe_path = validate_path(file_path, base_dir)
+        if os.path.exists(safe_path):
+            return f"Error: File already exists: {file_path}"
+
+        safe_write(file_path, content, base_dir)
+        return f"Successfully created file: {file_path}"
+    except Exception as e:
+        return f"Error creating file: {str(e)}"
