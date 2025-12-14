@@ -71,12 +71,10 @@ class FridayCLI:
         
         # Add compounding commands if available
         if configure_dspy:
-            print("DEBUG: configure_dspy is present, adding commands...")
             commands.extend([
                 '/triage', '/plan', '/work', '/review', 
                 '/generate', '/codify', '/compress'
             ])
-            print(f"DEBUG: Commands list now has {len(commands)} items")
             
         command_completer = WordCompleter(commands, ignore_case=True)
         
