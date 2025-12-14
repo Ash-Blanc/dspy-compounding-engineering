@@ -350,7 +350,7 @@ class FridayCLI:
         """Print current context information"""
         import subprocess
         
-        table = Table(title="[header]Current Context[/]", border_style="accent", show_header=True, header_style="bold subheader")
+        table = Table(title="[header]Current Context[/]", border_style="accent", show_header=True, header_style="subheader")
         table.add_column("Item", style="subheader", no_wrap=True)
         table.add_column("Value", style="white")
         
@@ -395,7 +395,7 @@ class FridayCLI:
             self.console.print("[warning]⚠ No conversation history yet[/]")
             return
         
-        table = Table(title="[header]Conversation History[/]", border_style="accent", show_header=True, header_style="bold subheader")
+        table = Table(title="[header]Conversation History[/]", border_style="accent", show_header=True, header_style="subheader")
         table.add_column("#", style="muted", width=4)
         table.add_column("Role", style="subheader", width=10)
         table.add_column("Content", style="white")
