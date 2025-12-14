@@ -86,12 +86,17 @@ class FridayCLI:
         command_completer = WordCompleter(commands, ignore_case=True)
         
         def bottom_toolbar():
-            return HTML("<b><style bg='ansiblack' fg='ansicyan'> /help </style> <style fg='ansigray'>·</style> <style fg='ansigreen'>Ctrl+C</style> cancel <style fg='ansigray'>·</style> <style fg='ansired'>Ctrl+D</style> exit </b>")
+            # Show context stats in toolbar
+            turn_count = len([m for m in self.context.messages if m.get("role") == "user"])
+            file_count = len(self.context.files_mentioned)
+            return HTML(f"<b><style bg='ansiblack' fg='ansicyan'> /help </style> <style fg='ansigray'>·</style> <style fg='ansigreen'>Ctrl+C</style> cancel <style fg='ansigray'>·</style> <style fg='ansired'>Ctrl+D</style> exit <style fg='ansigray'>│</style> <style fg='ansigray'>Turn {turn_count} · {file_count} files</style></b>")
 
         def make_rprompt():
             provider = os.getenv("DSPY_LM_PROVIDER", "openai")
             model = os.getenv("DSPY_LM_MODEL", "gpt-4o")
-            return HTML(f"<style fg='ansigray'>{provider}/{model}</style>")
+            # Shorten common model names
+            model_short = model.replace("gpt-4o", "gpt-4o").replace("claude-3-5-sonnet", "claude-3.5")
+            return HTML(f"<style fg='ansigray'>{provider}/{model_short}</style>")
 
         self.session = PromptSession(
             history=FileHistory(history_file),
@@ -184,119 +189,119 @@ class FridayCLI:
 
         # Choose ASCII art variant
         if ascii_variant == "compact":
-            ascii_art = f"""
-[bold blue]
-{ASCII_ART.get("friday", "FRIDAY")}
-[/]
-"""
+            ascii_art = f"[bold cyan]{ASCII_ART.get('friday_compact', 'FRIDAY')}[/]"
         else:
-            ascii_art = """
-[bold blue]
-███████╗██████╗ ██╗ ██████╗  █████╗ ██╗   ██╗
-██╔════╝██╔══██╗██║██╔════╝ ██╔══██╗╚██╗ ██╔╝
-█████╗  ██████╔╝██║██║  ███╗███████║ ╚████╔╝ 
-██╔══╝  ██╔══██╗██║██╔══██║  ╚██╔╝  
-███████╗██║  ██║██║╚██████╔╝██║  ██║   ██║   
-╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
-[/]
-"""
-        header = f"[bold white]FRIDAY[/] [dim]v{friday_version}[/]" if friday_version else "[bold white]FRIDAY[/]"
+            ascii_art = f"[bold cyan]{ASCII_ART.get('friday', 'FRIDAY')}[/]"
+        header = f"[header]FRIDAY[/] [muted]v{friday_version}[/]" if friday_version else "[header]FRIDAY[/]"
+        
+        # Get current Git info
+        git_info = ""
+        try:
+            import subprocess
+            branch = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, timeout=2
+            ).stdout.strip()
+            if branch:
+                git_info = f" [muted]on[/] [accent]{branch}[/]"
+        except Exception:
+            pass
 
         # Build adaptive banner using Rich Panel
         if minimal_mode:
             body = "\n".join([
                 f"{header}",
-                "[cyan]AI-Powered Coding Assistant[/]",
-                "[green]/help[/]  [dim]Commands[/]  [green]/clear[/]  [dim]Clear[/]  [green]/exit[/]  [dim]Quit[/]",
+                "[subheader]AI-Powered Coding Assistant[/]",
+                "[muted]Commands:[/] [command]/help[/] [muted]·[/] [command]/clear[/] [muted]·[/] [command]/exit[/]",
             ])
             # Minimal: no ASCII art, compact body
-            self.console.print(Panel.fit(body, border_style="blue"))
+            self.console.print(Panel.fit(body, border_style="accent", padding=(0, 1)))
         else:
             body = "\n".join([
                 f"{header}",
-                "[cyan]AI-Powered Coding Assistant[/]",
+                "[subheader]AI-Powered Coding Assistant[/]",
                 "",
-                f"[dim]{tip}[/]",
-                "[green]/help[/]  [dim]Show available commands[/]",
-                "[green]/clear[/] [dim]Clear conversation[/]",
-                "[green]/exit[/]  [dim]Exit Friday[/]",
+                f"[muted]💡 {tip}[/]",
+                "",
+                "[command]/help[/]   [muted]Show available commands[/]",
+                "[command]/clear[/]  [muted]Clear conversation[/]",
+                "[command]/exit[/]   [muted]Exit Friday[/]",
             ])
             # Print ASCII art followed by adaptive panel
             self.console.print(ascii_art)
-            self.console.print(Panel.fit(body, border_style="blue"))
+            self.console.print(Panel.fit(body, border_style="accent", padding=(0, 1)))
 
         cwd = os.getcwd()
-        self.console.print(f"[dim]Working directory:[/] [cyan]{cwd}[/]")
-        self.console.print()
+        self.console.print(f"\n[muted]Working in[/] [path]{cwd}[/]{git_info}")
+        self.console.print(f"[separator]{'─' * 60}[/]\n")
 
     def _print_help(self):
         """Print help information"""
-        help_text = """
-[bold]Commands:[/]
-  [green]/help[/]              Show this help message
-  [green]/clear[/]             Clear conversation history
-  [green]/context[/]           Show current context (files, git status)
-  [green]/history[/]           Show conversation history
-  [green]/compact[/]           Compact/summarize conversation history
-  [green]/model[/]             Show/change LLM model
-  [green]/diff[/]              Show git diff
-  [green]/status[/]            Show git status
-  [green]/files[/] [pattern]    List files matching pattern
-  [green]/compound[/]          Manage compound workflows
-  [green]/mcp[/]               Manage Model Context Protocol servers
-  [green]/exit[/], [green]/quit[/]       Exit Friday
+        help_text = """[header]Commands[/]
+  [command]/help[/]              [muted]Show this help message[/]
+  [command]/clear[/]             [muted]Clear conversation history[/]
+  [command]/context[/]           [muted]Show current context (files, git status)[/]
+  [command]/history[/]           [muted]Show conversation history[/]
+  [command]/compact[/]           [muted]Compact/summarize conversation history[/]
+  [command]/model[/]             [muted]Show/change LLM model[/]
+  [command]/diff[/]              [muted]Show git diff[/]
+  [command]/status[/]            [muted]Show git status[/]
+  [command]/files[/] [pattern]    [muted]List files matching pattern[/]
+  [command]/compound[/]          [muted]Manage compound workflows[/]
+  [command]/mcp[/]               [muted]Manage Model Context Protocol servers[/]
+  [command]/exit[/], [command]/quit[/]       [muted]Exit Friday[/]
 
-[bold]Compounding Commands:[/]
-  [green]/triage[/]            Triage and categorize findings
-  [green]/plan[/] <desc>       Transform description into project plan
-  [green]/work[/] <pattern>    Execute work (ID, plan file, or pattern)
-  [green]/review[/] [target]   Review PR or local changes
-  [green]/generate[/] <desc>   Generate a new CLI command
-  [green]/codify[/] <feedback> Codify feedback into knowledge base
-  [green]/compress[/]          Compress knowledge base (AI.md)
+[header]Compounding Commands[/]
+  [command]/triage[/]            [muted]Triage and categorize findings[/]
+  [command]/plan[/] <desc>       [muted]Transform description into project plan[/]
+  [command]/work[/] <pattern>    [muted]Execute work (ID, plan file, or pattern)[/]
+  [command]/review[/] [target]   [muted]Review PR or local changes[/]
+  [command]/generate[/] <desc>   [muted]Generate a new CLI command[/]
+  [command]/codify[/] <feedback> [muted]Codify feedback into knowledge base[/]
+  [command]/compress[/]          [muted]Compress knowledge base (AI.md)[/]
 
-[bold]Capabilities:[/]
-  [cyan]•[/] Read and edit files with syntax highlighting
-  [cyan]•[/] Search codebase (grep, glob patterns)
-  [cyan]•[/] Execute shell commands safely
-  [cyan]•[/] Git operations (status, diff, log, commit)
-  [cyan]•[/] Create and manage project todos
-  [cyan]•[/] Generate feature plans and code reviews
-  [cyan]•[/] Explain and refactor code
+[header]Capabilities[/]
+  [success]✓[/] Read and edit files with syntax highlighting
+  [success]✓[/] Search codebase (grep, glob patterns)
+  [success]✓[/] Execute shell commands safely
+  [success]✓[/] Git operations (status, diff, log, commit)
+  [success]✓[/] Create and manage project todos
+  [success]✓[/] Generate feature plans and code reviews
+  [success]✓[/] Explain and refactor code
 
-[bold]Examples:[/]
-  [dim]›[/] "Read the main.py file and explain what it does"
-  [dim]›[/] "/plan Add a new user authentication system"
-  [dim]›[/] "/work p1"
-  [dim]›[/] "/codify Always use type hints in Python functions"
-  [dim]›[/] "/compound run my-workflow"
-  [dim]›[/] "!ls -la" (Execute shell command)
+[header]Examples[/]
+  [prompt.arrow]›[/] [dim]"Read the main.py file and explain what it does"[/]
+  [prompt.arrow]›[/] [dim]"/plan Add a new user authentication system"[/]
+  [prompt.arrow]›[/] [dim]"/work p1"[/]
+  [prompt.arrow]›[/] [dim]"/codify Always use type hints in Python functions"[/]
+  [prompt.arrow]›[/] [dim]"/compound run my-workflow"[/]
+  [prompt.arrow]›[/] [dim]"!ls -la" (Execute shell command)[/]
 
-[bold]Tips:[/]
-  [dim]•[/] Be specific about file paths and function names
-  [dim]•[/] Ask follow-up questions for clarification
-  [dim]•[/] Use Ctrl+C to cancel, Ctrl+D to exit
+[header]Tips[/]
+  [info]💡[/] Be specific about file paths and function names
+  [info]💡[/] Ask follow-up questions for clarification
+  [info]💡[/] Use Ctrl+C to cancel, Ctrl+D to exit
 """
-        self.console.print(Panel(help_text, title="[bold]Friday Help[/]", border_style="blue"))
+        self.console.print(Panel(help_text, title="[header]Friday Help[/]", border_style="accent", padding=(1, 2)))
 
     def _print_context(self):
         """Print current context information"""
         import subprocess
         
-        table = Table(title="Current Context", border_style="blue")
-        table.add_column("Item", style="cyan")
+        table = Table(title="[header]Current Context[/]", border_style="accent", show_header=True, header_style="bold subheader")
+        table.add_column("Item", style="subheader", no_wrap=True)
         table.add_column("Value", style="white")
         
-        table.add_row("Working Directory", os.getcwd())
+        table.add_row("📁 Working Directory", f"[path]{os.getcwd()}[/]")
         
         try:
             branch = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True, text=True, timeout=5
             ).stdout.strip()
-            table.add_row("Git Branch", branch)
+            table.add_row("🔀 Git Branch", f"[accent]{branch}[/]")
         except Exception:
-            table.add_row("Git Branch", "[dim]Not a git repo[/dim]")
+            table.add_row("🔀 Git Branch", "[muted]Not a git repo[/]")
         
         try:
             status = subprocess.run(
@@ -304,16 +309,21 @@ class FridayCLI:
                 capture_output=True, text=True, timeout=5
             ).stdout
             changed = len([line for line in status.strip().split('\n') if line])
-            table.add_row("Changed Files", str(changed))
+            status_color = "warning" if changed > 0 else "success"
+            table.add_row("📝 Changed Files", f"[{status_color}]{changed}[/]")
         except Exception:
             pass
         
-        table.add_row("Conversation Turns", str(len(self.context.messages)))
-        table.add_row("Files in Context", str(len(self.context.files_mentioned)))
+        turns = len(self.context.messages)
+        turn_color = "warning" if turns > 40 else "info" if turns > 20 else "muted"
+        table.add_row("💬 Conversation Turns", f"[{turn_color}]{turns}[/]")
+        
+        files = len(self.context.files_mentioned)
+        table.add_row("📄 Files in Context", f"[info]{files}[/]")
         
         provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         model = os.getenv("DSPY_LM_MODEL", "gpt-4o")
-        table.add_row("LLM Provider", f"{provider}/{model}")
+        table.add_row("🤖 LLM Provider", f"[subheader]{provider}[/]/[muted]{model}[/]")
         
         self.console.print(table)
 
@@ -675,9 +685,21 @@ class FridayCLI:
         self.console.print("[dim]  DSPY_LM_MODEL=gpt-4o|claude-3-5-sonnet-20241022|etc[/]")
 
     def _get_prompt(self) -> str:
-        """Get the input prompt with current directory"""
+        """Get the input prompt with current directory and context"""
         cwd = os.path.basename(os.getcwd())
-        return f"[{cwd}] › "
+        
+        # Add conversation turn indicator
+        turn = len([m for m in self.context.messages if m.get("role") == "user"])
+        
+        # Color-code prompt based on context size
+        if turn > 40:
+            turn_color = "warning"
+        elif turn > 20:
+            turn_color = "info"
+        else:
+            turn_color = "muted"
+        
+        return f"[prompt.path]{cwd}[/] [{turn_color}]#{turn}[/] [prompt.arrow]›[/] "
 
     async def run(self): # Made async
         """Main run loop"""
