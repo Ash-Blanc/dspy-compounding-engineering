@@ -2,6 +2,7 @@
 
 import os
 import signal
+import asyncio # New import
 
 from rich.console import Console
 from rich.panel import Panel
@@ -18,6 +19,7 @@ from friday.theme import FRIDAY_THEME, get_prompt_style, get_rich_theme, ASCII_A
 from friday.tools import ToolExecutor
 from friday.context import ConversationContext
 from friday.agent import FridayAgent
+from friday.mcp import MCPManager # New Import
 
 # Compounding Engineering Imports
 try:
@@ -58,7 +60,8 @@ class FridayCLI:
         self.console = Console(theme=get_rich_theme(theme_profile), force_terminal=True)
         self.context = ConversationContext()
         self.tools = ToolExecutor(self.console)
-        self.agent = FridayAgent(self.console, self.tools, self.context)
+        self.mcp_manager = MCPManager() # Initialize MCPManager
+        self.agent = FridayAgent(self.console, self.tools, self.context, mcp_manager=self.mcp_manager) # Pass mcp_manager to agent
         self.running = True
         
         history_dir = os.path.expanduser("~/.friday")
@@ -69,7 +72,8 @@ class FridayCLI:
             '/help', '/clear', '/context', '/history', '/compact',
             '/exit', '/quit', '/model', '/diff', '/status', '/files',
             '/compound', '/compound init', '/compound add', '/compound list',
-            '/compound run', '/compound remove', '/compound clear'
+            '/compound run', '/compound remove', '/compound clear',
+            '/mcp', '/mcp add', '/mcp remove', '/mcp list', '/mcp connect' # Add MCP commands
         ]
         
         # Add compounding commands if available
@@ -239,6 +243,7 @@ class FridayCLI:
   [green]/status[/]            Show git status
   [green]/files[/] [pattern]    List files matching pattern
   [green]/compound[/]          Manage compound workflows
+  [green]/mcp[/]               Manage Model Context Protocol servers
   [green]/exit[/], [green]/quit[/]       Exit Friday
 
 [bold]Compounding Commands:[/]
@@ -328,7 +333,7 @@ class FridayCLI:
                 self.console.print(f"[bold green]Friday:[/] {content}...")
             self.console.print()
 
-    def _handle_command(self, command: str) -> bool:
+    async def _handle_command(self, command: str) -> bool: # Made async
         """Handle slash commands. Returns True if should continue, False to exit."""
         parts = command.strip().split(maxsplit=1)
         cmd = parts[0].lower()
@@ -405,7 +410,102 @@ class FridayCLI:
         except Exception as e:
             self.console.print(f"[red]Error executing workflow: {e}[/]")
 
-    def _handle_compound_command(self, args: str):
+    async def _handle_mcp_command(self, args: str): # New async method
+        """Handle /mcp commands"""
+        parts = args.strip().split(maxsplit=1)
+        if not parts:
+            self.console.print("[yellow]Usage: /mcp <subcommand> [args][/]")
+            self.console.print("[dim]Subcommands: add, remove, list, connect[/dim]")
+            return
+        
+        subcommand = parts[0].lower()
+        sub_args = parts[1] if len(parts) > 1 else ""
+        
+        if subcommand == "add":
+            self._mcp_add_server(sub_args)
+        elif subcommand == "remove":
+            self._mcp_remove_server(sub_args)
+        elif subcommand == "list":
+            self._mcp_list_servers()
+        elif subcommand == "connect":
+            await self._mcp_connect_server(sub_args)
+        else:
+            self.console.print(f"[yellow]Unknown /mcp subcommand: {subcommand}[/]")
+            self.console.print("[dim]Available: add, remove, list, connect[/dim]")
+
+    def _mcp_add_server(self, args: str):
+        """Add an MCP server to configuration: /mcp add <name> <command> [args...]"""
+        parts = args.strip().split(maxsplit=2)
+        if len(parts) < 2:
+            self.console.print("[yellow]Usage: /mcp add <name> <command> [args...][/]")
+            return
+        
+        name = parts[0]
+        command = parts[1]
+        cmd_args = parts[2].split() if len(parts) > 2 else []
+        
+        self.mcp_manager.add_server(name, command, cmd_args)
+        self.console.print(f"[green]MCP server '{name}' added.[/green]")
+
+    def _mcp_remove_server(self, name: str):
+        """Remove an MCP server from configuration: /mcp remove <name>"""
+        if not name:
+            self.console.print("[yellow]Usage: /mcp remove <name>[/]")
+            return
+        
+        if name not in self.mcp_manager.servers:
+            self.console.print(f"[yellow]Error: Server '{name}' not found.[/yellow]")
+            return
+        
+        # Disconnect if connected
+        if name in self.mcp_manager.sessions:
+            # Need to figure out how to disconnect specific session cleanly
+            # For now, just remove from config
+            pass 
+        
+        self.mcp_manager.remove_server(name)
+        self.console.print(f"[green]MCP server '{name}' removed.[/green]")
+
+    def _mcp_list_servers(self):
+        """List configured MCP servers: /mcp list"""
+        if not self.mcp_manager.servers:
+            self.console.print("[dim]No MCP servers configured.[/dim]")
+            return
+        
+        table = Table(title="Configured MCP Servers", border_style="blue")
+        table.add_column("Name", style="cyan")
+        table.add_column("Command", style="white")
+        table.add_column("Status", style="green")
+        
+        for name, cfg in self.mcp_manager.servers.items():
+            status = "Connected" if name in self.mcp_manager.sessions else "Disconnected"
+            table.add_row(name, f"{cfg.command} {' '.join(cfg.args)}", status)
+            
+        self.console.print(table)
+        
+        if self.mcp_manager.available_tools:
+            self.console.print("\n[bold]Available MCP Tools:[/]")
+            for tool in self.mcp_manager.available_tools:
+                self.console.print(f"  - {tool['name']} (from {tool['server']})")
+
+    async def _mcp_connect_server(self, name: str):
+        """Connect to a specific MCP server: /mcp connect <name>"""
+        if not name:
+            self.console.print("[yellow]Usage: /mcp connect <name>[/]")
+            return
+        
+        if name not in self.mcp_manager.servers:
+            self.console.print(f"[yellow]Error: Server '{name}' not found in config.[/yellow]")
+            return
+        
+        self.console.print(f"[cyan]Connecting to MCP server '{name}'...[/cyan]")
+        try:
+            await self.mcp_manager.connect_server(name)
+            self.console.print(f"[green]Successfully connected to '{name}'.[/green]")
+        except Exception as e:
+            self.console.print(f"[red]Failed to connect to '{name}': {e}[/red]")
+
+    async def _handle_compound_command(self, args: str): # Made async
         """Handle compound workflow commands"""
         parts = args.strip().split(maxsplit=1)
         if not parts:
@@ -423,7 +523,7 @@ class FridayCLI:
         elif subcommand == "list":
             self._compound_list(sub_args)
         elif subcommand == "run":
-            self._compound_run(sub_args)
+            await self._compound_run(sub_args)
         elif subcommand == "remove":
              self._compound_remove(sub_args)
         elif subcommand == "clear":
@@ -490,7 +590,7 @@ class FridayCLI:
         for i, cmd in enumerate(commands, 1):
             self.console.print(f"  {i}. [white]{cmd}[/]")
 
-    def _compound_run(self, workflow_name: str):
+    async def _compound_run(self, workflow_name: str):
         """Run all commands in a compound workflow"""
         if not workflow_name:
             self.console.print("[yellow]Error: Workflow name is required[/]")
@@ -512,7 +612,7 @@ class FridayCLI:
             self.console.print(f"[dim]Executing command {i}/{len(commands)}:[/] [white]{cmd}[/]")
             try:
                 # Execute the command through the agent
-                self.agent.process_message(cmd)
+                await self.agent.process_message(cmd) # Await process_message
             except Exception as e:
                 self.console.print(f"[red]Error executing command {i}: {e}[/]")
                 break
@@ -579,14 +679,17 @@ class FridayCLI:
         cwd = os.path.basename(os.getcwd())
         return f"[{cwd}] › "
 
-    def run(self):
+    async def run(self): # Made async
         """Main run loop"""
         self._print_banner()
         
+        # Connect MCP servers on startup
+        await self.mcp_manager.connect_all()
+
         while self.running:
             try:
                 prompt_text = self._get_prompt()
-                user_input = self.session.prompt(
+                user_input = await self.session.prompt_async( # Use async prompt
                     prompt_text,
                     rprompt=self._make_rprompt(),
                 )
@@ -600,17 +703,17 @@ class FridayCLI:
                     continue
                 
                 if user_input.startswith("/"):
-                    if not self._handle_command(user_input):
+                    if not await self._handle_command(user_input): # await _handle_command
                         break
                     continue
                 
                 if user_input.startswith("!"):
                     shell_cmd = user_input[1:].strip()
                     if shell_cmd:
-                        self.tools.execute_command(shell_cmd)
+                        self.tools.execute_command(shell_cmd) # execute_command is sync
                     continue
                 
-                self.agent.process_message(user_input)
+                await self.agent.process_message(user_input) # await process_message
                 
             except KeyboardInterrupt:
                 self.console.print("\n[dim]Use /exit to quit[/dim]")
@@ -622,4 +725,5 @@ class FridayCLI:
                 self.console.print(f"[red]Error: {e}[/]")
                 continue
 
+        await self.mcp_manager.cleanup() # Cleanup MCP connections
         self.context.save()
