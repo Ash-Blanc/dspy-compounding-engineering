@@ -80,6 +80,17 @@ cp .env.example .env
 uv sync
 ```
 
+### Temporary runner: `uvx`
+
+The repository includes a small wrapper script `uvx` that runs the CLI via `uv run` without doing a global install. It's useful for quickly trying commands locally:
+
+```bash
+./uvx -h
+./uvx generate-command "create a command to list large files"
+```
+
+The script is in the repository root and is executable; run it from the repo directory.
+
 ## The Compounding Engineering Loop
 
 This implementation embodies the core philosophy: **each unit of work makes subsequent work easier**.
