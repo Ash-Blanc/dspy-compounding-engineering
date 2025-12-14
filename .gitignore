@@ -32,11 +32,8 @@ ENV/
 env/
 
 # Environment variables
-.env
-.env.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -62,3 +59,5 @@ site/
 .coverage
 htmlcov/
 .tox/
+config.bat
+node_modules
