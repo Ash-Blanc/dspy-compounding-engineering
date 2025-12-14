@@ -1,26 +1,10 @@
-from typing import List
-from pydantic import BaseModel, Field
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
 
 
-class SecurityFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the vulnerability")
-    severity: str = Field(..., description="Critical, High, Medium, or Low")
-    description: str = Field(..., description="Detailed description of the issue")
-    impact: str = Field(..., description="Potential impact and exploitability")
-    location: str = Field(..., description="Specific code location (file and line)")
-    remediation: str = Field(..., description="Actionable steps to fix the issue")
-
-
-class SecurityReport(BaseModel):
-    executive_summary: str = Field(..., description="High-level risk assessment")
-    findings: List[SecurityFinding] = Field(
-        default_factory=list, description="List of security vulnerabilities found"
-    )
+class SecurityReport(ReviewReport):
     risk_matrix: str = Field(..., description="Summary of findings by severity")
-    action_required: bool = Field(
-        ..., description="True if actionable findings present, False otherwise"
-    )
 
 
 class SecuritySentinel(dspy.Signature):

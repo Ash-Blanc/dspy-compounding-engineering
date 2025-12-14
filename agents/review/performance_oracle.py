@@ -1,43 +1,35 @@
+from agents.review.schema import ReviewReport, ReviewFinding
 from typing import List
-from pydantic import BaseModel, Field
+from pydantic import Field
 import dspy
 
 
-class PerformanceFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the performance issue")
-    category: str = Field(..., description="Algorithmic, Database, Memory, or Caching")
-    description: str = Field(..., description="Detailed description of the finding")
-    impact: str = Field(
-        ..., description="Latency, resource usage, or scalability impact"
+class PerformanceFinding(ReviewFinding):
+    estimated_impact: str = Field(
+        ..., description="Estimated performance impact (High/Medium/Low)"
     )
-    recommendation: str = Field(..., description="Specific optimization advice")
 
 
-class PerformanceReport(BaseModel):
-    summary: str = Field(..., description="High-level performance assessment")
+class PerformanceReport(ReviewReport):
     scalability_assessment: str = Field(
-        ..., description="Projected performance at scale"
-    )
-    findings: List[PerformanceFinding] = Field(
-        default_factory=list, description="List of performance findings"
+        ..., description="Assessment of scalability implications"
     )
     optimization_opportunities: str = Field(
-        ..., description="Areas for future optimization"
+        ..., description="High-level optimization suggestions"
     )
-    action_required: bool = Field(
-        ..., description="True if actionable findings present"
-    )
+    findings: List[PerformanceFinding] = Field(default_factory=list)
 
 
 class PerformanceOracle(dspy.Signature):
     """
-    You are the Performance Oracle, an elite performance optimization expert specializing in identifying and resolving performance bottlenecks.
+    You are a Performance Optimization Expert. You analyze code for inefficiencies, bottlenecks, and scalability issues.
 
-    ## Performance Analysis Protocol
-    1. Algorithmic Complexity (Big O, loops).
-    2. Database Performance (N+1, indexes).
-    3. Memory Management (leaks, allocations).
-    4. Caching Opportunities (memoization).
+    ## Performance Review Protocol
+    1. Complexity Analysis (Big O, nested loops).
+    2. Database Query Efficiency (N+1, missing indexes).
+    3. Memory Management (leaks, large allocations).
+    4. I/O Operations (blocking calls, network chatter).
+    5. Caching Strategy (opportunities, invalidation).
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")

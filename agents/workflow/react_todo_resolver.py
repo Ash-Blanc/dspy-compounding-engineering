@@ -1,5 +1,4 @@
 import dspy
-import functools
 
 from utils.file_tools import (
     create_file,
@@ -87,6 +86,15 @@ class ReActTodoResolver(dspy.Module):
             signature=TodoResolutionSignature, tools=self.tools, max_iters=15
         )
 
+    def _sanitize_input(self, text: str) -> str:
+        """Sanitize input text to remove potentially dangerous characters."""
+        if not text:
+            return ""
+        # Basic sanitization: remove null bytes and control characters (except newlines/tabs)
+        # and ensure utf-8 encoding compatibility
+        return "".join(ch for ch in text if ch == "\n" or ch == "\t" or ord(ch) >= 32)
+
     def forward(self, todo_content: str, todo_id: str):
         """Resolve todo using ReAct reasoning."""
-        return self.react_agent(todo_content=todo_content, todo_id=todo_id)
+        clean_content = self._sanitize_input(todo_content)
+        return self.react_agent(todo_content=clean_content, todo_id=todo_id)

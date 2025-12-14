@@ -58,7 +58,7 @@ def test_safe_write_overwrite(temp_dir):
     # Overwrite=False
     with pytest.raises(FileExistsError):
         safe_write("test.txt", "Another", base_dir=str(temp_dir), overwrite=False)
-    
+
     assert test_file.read_text(encoding="utf-8") == "New"
 
 
@@ -78,3 +78,26 @@ def test_create_file(temp_dir):
     result = create_file("new_file.txt", "New Content", base_dir=str(temp_dir))
     assert "Error: File already exists" in result
     assert test_file.read_text(encoding="utf-8") == "Content"
+
+
+@pytest.mark.unit
+def test_edit_file_lines_validation(temp_dir):
+    """Test validation in edit_file_lines."""
+    from utils.file_tools import edit_file_lines
+
+    # Create dummy file
+    (temp_dir / "test.txt").write_text("Line 1\nLine 2")
+
+    # Invalid edits type
+    result = edit_file_lines("test.txt", edits="invalid", base_dir=str(temp_dir))
+    assert "Error: arguments 'edits' must be a list" in result
+
+    # Invalid edit item type
+    result = edit_file_lines("test.txt", edits=["invalid"], base_dir=str(temp_dir))
+    assert "Error: edit item 0 must be a dictionary" in result
+
+    # Missing keys
+    result = edit_file_lines(
+        "test.txt", edits=[{"start_line": 1}], base_dir=str(temp_dir)
+    )
+    assert "missing required keys" in result

@@ -1,35 +1,11 @@
-from typing import List
-from pydantic import BaseModel, Field
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
 
 
-class ArchitectureFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the architectural issue")
-    category: str = Field(
-        ..., description="e.g., Coupling, Abstraction, SOLID, Dependencies"
-    )
-    description: str = Field(..., description="Detailed description of the finding")
-    impact: str = Field(
-        ..., description="Impact on system evolution and maintainability"
-    )
-    recommendation: str = Field(..., description="Specific suggestion for improvement")
-
-
-class ArchitectureReport(BaseModel):
-    architecture_overview: str = Field(
-        ..., description="Brief summary of relevant architectural context"
-    )
-    change_assessment: str = Field(
-        ..., description="How changes fit within existing architecture"
-    )
-    findings: List[ArchitectureFinding] = Field(
-        default_factory=list, description="List of architectural findings"
-    )
+class ArchitectureReport(ReviewReport):
     risk_analysis: str = Field(
         ..., description="Potential architectural risks or technical debt"
-    )
-    action_required: bool = Field(
-        ..., description="True if actionable findings present"
     )
 
 

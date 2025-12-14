@@ -100,7 +100,7 @@ dependencies: []
 
 Finding from **{agent}** during code review.
 
-{review_text[:2000] if len(review_text) > 2000 else review_text}
+{review_text}
 
 ## Findings
 

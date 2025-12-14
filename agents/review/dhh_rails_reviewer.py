@@ -1,30 +1,15 @@
-from typing import List
-from pydantic import BaseModel, Field
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
 
 
-class RailsFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the Rails violation")
-    violation_type: str = Field(
-        ..., description="Convention Violation, Complexity, or Anti-Pattern"
-    )
-    description: str = Field(..., description="Description of the issue in DHH's voice")
-    location: str = Field(..., description="File and line number")
-    recommendation: str = Field(..., description="The Rails Way alternative")
-
-
-class DhhReviewReport(BaseModel):
-    summary: str = Field(..., description="Overall assessment in DHH's voice")
-    findings: List[RailsFinding] = Field(
-        default_factory=list, description="List of violations found"
-    )
+class DhhReviewReport(ReviewReport):
     complexity_analysis: str = Field(
         ..., description="Critique of unnecessary abstractions"
     )
     final_verdict: str = Field(
         ..., description="Final judgment (Pass/Fail) with witty remark"
     )
-    action_required: bool = Field(..., description="True if violations present")
 
 
 class DhhRailsReviewer(dspy.Signature):

@@ -1,28 +1,11 @@
-from typing import List
-from pydantic import BaseModel, Field
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
 
 
-class KieranFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the finding")
-    category: str = Field(..., description="Convention, Testing, Naming, or Complexity")
-    description: str = Field(
-        ..., description="Detailed explanation of why this is an issue"
-    )
-    location: str = Field(..., description="File and line number")
-    suggestion: str = Field(..., description="Specific improvement with example")
-
-
-class KieranReport(BaseModel):
-    summary: str = Field(..., description="High-level assessment of the changes")
-    findings: List[KieranFinding] = Field(
-        default_factory=list, description="List of findings"
-    )
+class KieranReport(ReviewReport):
     convention_score: str = Field(
         ..., description="Rating (1-10) of Rails convention adherence"
-    )
-    action_required: bool = Field(
-        ..., description="True if actionable findings present"
     )
 
 

@@ -1,36 +1,21 @@
+from agents.review.schema import ReviewReport, ReviewFinding
 from typing import List
-from pydantic import BaseModel, Field
+from pydantic import Field
 import dspy
 
 
-class SimplicityFinding(BaseModel):
-    issue_type: str = Field(
-        ..., description="Complexity, Redundancy, YAGNI, or Abstraction"
-    )
-    description: str = Field(
-        ..., description="Description of the unnecessary complexity"
-    )
-    location: str = Field(..., description="File and line numbers")
-    recommendation: str = Field(..., description="Simpler alternative implementation")
+class SimplicityFinding(ReviewFinding):
     estimated_loc_reduction: str = Field(
         ..., description="Estimated lines of code saved (e.g., '10 lines')"
     )
 
 
-class SimplicityReport(BaseModel):
+class SimplicityReport(ReviewReport):
     core_purpose: str = Field(..., description="What the code actually needs to do")
-    assessment_summary: str = Field(
-        ..., description="Overall assessment of code simplicity"
-    )
-    findings: List[SimplicityFinding] = Field(
-        default_factory=list, description="List of simplification opportunities"
-    )
     final_assessment: str = Field(
         ..., description="Complexity score and recommended action"
     )
-    action_required: bool = Field(
-        ..., description="True if simplification opportunities found"
-    )
+    findings: List[SimplicityFinding] = Field(default_factory=list)
 
 
 class CodeSimplicityReviewer(dspy.Signature):
