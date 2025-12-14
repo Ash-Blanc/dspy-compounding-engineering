@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Temporary runner for the Compounding CLI using `uv run`.
+# Usage: ./uvx [ARGS...]
+# This invokes the project's CLI without installing it into the system.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Prefer to run the local `cli.py` script through the UV tool.
+exec uv run python cli.py "$@"
