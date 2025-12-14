@@ -10,7 +10,7 @@ from workflows.review import run_review
 from workflows.triage import run_triage
 from workflows.work_unified import run_unified_work
 
-app = typer.Typer()
+app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 
 @app.callback()
@@ -100,9 +100,9 @@ def review(
     Perform exhaustive multi-agent code reviews.
 
     Examples:
-        uv run python cli.py review              # Review local changes
-        uv run python cli.py review --project    # Review entire project
-        uv run python cli.py review 123          # Review PR #123
+        compounding review              # Review local changes
+        compounding review --project    # Review entire project
+        compounding review 123          # Review PR #123
     """
     run_review(pr_url_or_id, project=project)
 
@@ -127,9 +127,9 @@ def generate_command(
     and generates all necessary code.
 
     Examples:
-        python cli.py generate-command "Create a command to format code"
-        python cli.py generate-command "Add a lint command that checks Python style"
-        python cli.py generate-command --dry-run "Create a deployment workflow"
+        compounding generate-command "Create a command to format code"
+        compounding generate-command "Add a lint command that checks Python style"
+        compounding generate-command --dry-run "Create a deployment workflow"
     """
     run_generate_command(description=description, dry_run=dry_run)
 
@@ -154,8 +154,8 @@ def codify(
     them to the persistent knowledge base.
 
     Examples:
-        python cli.py codify "Always use strict typing in Python files"
-        python cli.py codify "We should use factory pattern for creating agents" --source retro
+        compounding codify "Always use strict typing in Python files"
+        compounding codify "We should use factory pattern for creating agents" --source retro
     """
     run_codify(feedback=feedback, source=source)
 
