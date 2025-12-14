@@ -152,7 +152,7 @@ class FridayCLI:
         cfg_banner = (self.user_config or {}).get("banner", {}) if hasattr(self, "user_config") else {}
         cfg_enabled = cfg_banner.get("enabled", True)
         cfg_minimal = cfg_banner.get("minimal", False)
-        cfg_ascii_variant = cfg_banner.get("ascii", "block")
+        cfg_ascii_variant = cfg_banner.get("ascii", "compact")
 
         if _is_true(env_no_banner) or (env_no_banner is None and not cfg_enabled):
             return
