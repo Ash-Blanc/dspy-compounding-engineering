@@ -14,7 +14,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
 import random
 
-from friday.theme import FRIDAY_THEME, get_prompt_style
+from friday.theme import FRIDAY_THEME, get_prompt_style, ASCII_ART
 from friday.tools import ToolExecutor
 from friday.context import ConversationContext
 from friday.agent import FridayAgent
@@ -29,8 +29,10 @@ try:
     from workflows.triage import run_triage
     from workflows.work import run_unified_work
     from utils.knowledge_base import KnowledgeBase
-except ImportError:
+except ImportError as e:
     # Handle case where dependencies aren't available
+    import sys
+    print(f"DEBUG: Import failed in friday/cli.py: {e}", file=sys.stderr)
     configure_dspy = None
 
 
@@ -52,6 +54,9 @@ class FridayCLI:
         self.tools = ToolExecutor(self.console)
         self.agent = FridayAgent(self.console, self.tools, self.context)
         self.running = True
+
+        # Load user config (~/.friday/config.json)
+        self.user_config = self._load_user_config()
         
         history_dir = os.path.expanduser("~/.friday")
         os.makedirs(history_dir, exist_ok=True)
@@ -66,10 +71,12 @@ class FridayCLI:
         
         # Add compounding commands if available
         if configure_dspy:
+            print("DEBUG: configure_dspy is present, adding commands...")
             commands.extend([
                 '/triage', '/plan', '/work', '/review', 
                 '/generate', '/codify', '/compress'
             ])
+            print(f"DEBUG: Commands list now has {len(commands)} items")
             
         command_completer = WordCompleter(commands, ignore_case=True)
         
@@ -88,7 +95,7 @@ class FridayCLI:
             multiline=False,
             key_bindings=self._create_key_bindings(),
             completer=command_completer,
-            complete_while_typing=False,
+            complete_while_typing=True,
             bottom_toolbar=bottom_toolbar,
         )
         self._make_rprompt = make_rprompt
@@ -116,20 +123,44 @@ class FridayCLI:
         """Handle interrupt signal gracefully"""
         self.console.print("\n[dim]Use /exit or Ctrl+D to quit[/dim]")
 
+    def _load_user_config(self):
+        """Load user config from ~/.friday/config.json if present"""
+        import json
+        cfg_path = os.path.expanduser("~/.friday/config.json")
+        if not os.path.exists(cfg_path):
+            return {}
+        try:
+            with open(cfg_path, "r") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
     def _print_banner(self):
         """Print the welcome banner with optional ASCII art.
         Controlled by env vars:
           - FRIDAY_NO_BANNER=1 -> skip all banner output
           - FRIDAY_MINIMAL=1   -> no ASCII art / tips, compact panel
         """
-        # Feature toggles from env
+        # Feature toggles from env and ~/.friday/config.json
         def _is_true(val: str | None) -> bool:
             return str(val or "").strip().lower() in {"1", "true", "yes", "on"}
 
-        if _is_true(os.getenv("FRIDAY_NO_BANNER")):
+        # Read env first; fall back to config
+        env_no_banner = os.getenv("FRIDAY_NO_BANNER")
+        env_minimal = os.getenv("FRIDAY_MINIMAL")
+        env_ascii_variant = os.getenv("FRIDAY_ASCII_VARIANT")  # block|compact
+
+        cfg_banner = (self.user_config or {}).get("banner", {}) if hasattr(self, "user_config") else {}
+        cfg_enabled = cfg_banner.get("enabled", True)
+        cfg_minimal = cfg_banner.get("minimal", False)
+        cfg_ascii_variant = cfg_banner.get("ascii", "block")
+
+        if _is_true(env_no_banner) or (env_no_banner is None and not cfg_enabled):
             return
 
-        minimal_mode = _is_true(os.getenv("FRIDAY_MINIMAL"))
+        minimal_mode = _is_true(env_minimal) if env_minimal is not None else bool(cfg_minimal)
+        ascii_variant = (env_ascii_variant or cfg_ascii_variant or "block").lower()
 
         try:
             from friday import __version__ as friday_version
@@ -146,12 +177,20 @@ class FridayCLI:
         ]
         tip = random.choice(tips)
 
-        ascii_art = """
+        # Choose ASCII art variant
+        if ascii_variant == "compact":
+            ascii_art = f"""
+[bold blue]
+{ASCII_ART.get("friday", "FRIDAY")}
+[/]
+"""
+        else:
+            ascii_art = """
 [bold blue]
 ███████╗██████╗ ██╗ ██████╗  █████╗ ██╗   ██╗
 ██╔════╝██╔══██╗██║██╔════╝ ██╔══██╗╚██╗ ██╔╝
 █████╗  ██████╔╝██║██║  ███╗███████║ ╚████╔╝ 
-██╔══╝  ██╔══██╗██║██║   ██║██╔══██║  ╚██╔╝  
+██╔══╝  ██╔══██╗██║██╔══██║  ╚██╔╝  
 ███████╗██║  ██║██║╚██████╔╝██║  ██║   ██║   
 ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
 [/]
