@@ -11,6 +11,8 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.formatted_text import HTML
+import random
 
 from friday.theme import FRIDAY_THEME, get_prompt_style
 from friday.tools import ToolExecutor
@@ -71,6 +73,14 @@ class FridayCLI:
             
         command_completer = WordCompleter(commands, ignore_case=True)
         
+        def bottom_toolbar():
+            return HTML("<b><style bg='ansiblack' fg='ansicyan'> /help </style> <style fg='ansigray'>·</style> <style fg='ansigreen'>Ctrl+C</style> cancel <style fg='ansigray'>·</style> <style fg='ansired'>Ctrl+D</style> exit </b>")
+
+        def make_rprompt():
+            provider = os.getenv("DSPY_LM_PROVIDER", "openai")
+            model = os.getenv("DSPY_LM_MODEL", "gpt-4o")
+            return HTML(f"<style fg='ansigray'>{provider}/{model}</style>")
+
         self.session = PromptSession(
             history=FileHistory(history_file),
             auto_suggest=AutoSuggestFromHistory(),
@@ -79,7 +89,9 @@ class FridayCLI:
             key_bindings=self._create_key_bindings(),
             completer=command_completer,
             complete_while_typing=False,
+            bottom_toolbar=bottom_toolbar,
         )
+        self._make_rprompt = make_rprompt
         
         signal.signal(signal.SIGINT, self._handle_interrupt)
 
@@ -105,19 +117,49 @@ class FridayCLI:
         self.console.print("\n[dim]Use /exit or Ctrl+D to quit[/dim]")
 
     def _print_banner(self):
-        """Print the welcome banner"""
-        banner = """
-[bold blue]╭─────────────────────────────────────────────────────────────╮[/]
-[bold blue]│[/]  [bold white]Friday[/] [dim]v0.1.0[/]                                             [bold blue]│[/]
-[bold blue]│[/]  [cyan]AI-Powered Coding Assistant[/]                               [bold blue]│[/]
-[bold blue]│[/]                                                             [bold blue]│[/]
-[bold blue]│[/]  [dim]Type your request or use commands:[/]                        [bold blue]│[/]
-[bold blue]│[/]    [green]/help[/]    [dim]Show available commands[/]                       [bold blue]│[/]
-[bold blue]│[/]    [green]/clear[/]   [dim]Clear conversation[/]                            [bold blue]│[/]
-[bold blue]│[/]    [green]/exit[/]    [dim]Exit Friday[/]                                   [bold blue]│[/]
-[bold blue]╰─────────────────────────────────────────────────────────────╯[/] """
-        self.console.print(banner)
-        
+        """Print the welcome banner with ASCII art"""
+        try:
+            from friday import __version__ as friday_version
+        except Exception:
+            friday_version = ""
+
+        tips = [
+            "Use /help to discover commands",
+            "Press Ctrl+C to cancel current operation",
+            "Press Ctrl+D or type /exit to quit",
+            "Use /files **/*.py to list Python files",
+            "Try /status or /diff to check Git state",
+            "/plan turns ideas into actionable plans",
+        ]
+        tip = random.choice(tips)
+
+        ascii_art = """
+[bold blue]
+███████╗██████╗ ██╗ ██████╗  █████╗ ██╗   ██╗
+██╔════╝██╔══██╗██║██╔════╝ ██╔══██╗╚██╗ ██╔╝
+█████╗  ██████╔╝██║██║  ███╗███████║ ╚████╔╝ 
+██╔══╝  ██╔══██╗██║██║   ██║██╔══██║  ╚██╔╝  
+███████╗██║  ██║██║╚██████╔╝██║  ██║   ██║   
+╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+[/]
+"""
+        header = f"[bold white]FRIDAY[/] [dim]v{friday_version}[/]" if friday_version else "[bold white]FRIDAY[/]"
+
+        # Build adaptive banner using Rich Panel
+        body = "\n".join([
+            f"{header}",
+            "[cyan]AI-Powered Coding Assistant[/]",
+            "",
+            f"[dim]{tip}[/]",
+            "[green]/help[/]  [dim]Show available commands[/]",
+            "[green]/clear[/] [dim]Clear conversation[/]",
+            "[green]/exit[/]  [dim]Exit Friday[/]",
+        ])
+
+        # Print ASCII art followed by adaptive panel and working directory
+        self.console.print(ascii_art)
+        self.console.print(Panel.fit(body, border_style="blue"))
+
         cwd = os.getcwd()
         self.console.print(f"[dim]Working directory:[/] [cyan]{cwd}[/]")
         self.console.print()
@@ -484,7 +526,7 @@ class FridayCLI:
                 prompt_text = self._get_prompt()
                 user_input = self.session.prompt(
                     prompt_text,
-                    rprompt="",
+                    rprompt=self._make_rprompt(),
                 )
                 
                 if user_input is None:
