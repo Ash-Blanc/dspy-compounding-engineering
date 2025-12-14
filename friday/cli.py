@@ -330,18 +330,38 @@ class FridayCLI:
     def _print_history(self):
         """Print conversation history"""
         if not self.context.messages:
-            self.console.print("[dim]No conversation history yet[/dim]")
+            self.console.print("[warning]⚠ No conversation history yet[/]")
             return
+        
+        table = Table(title="[header]Conversation History[/]", border_style="accent", show_header=True, header_style="bold subheader")
+        table.add_column("#", style="muted", width=4)
+        table.add_column("Role", style="subheader", width=10)
+        table.add_column("Content", style="white")
+        table.add_column("Time", style="muted", width=8)
         
         for i, msg in enumerate(self.context.messages[-10:], 1):
             role = msg.get("role", "unknown")
-            content = msg.get("content", "")[:200]
+            role_icon = {"user": "👤", "assistant": "🤖", "tool": "🔧", "system": "⚙️"}.get(role, "•")
+            content = msg.get("content", "")[:80]
+            if len(msg.get("content", "")) > 80:
+                content += "..."
             
-            if role == "user":
-                self.console.print(f"[bold cyan]You:[/] {content}")
+            # Parse timestamp if available
+            timestamp = msg.get("timestamp", "")
+            if timestamp:
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(timestamp)
+                    time_str = dt.strftime("%H:%M:%S")
+                except Exception:
+                    time_str = ""
             else:
-                self.console.print(f"[bold green]Friday:[/] {content}...")
-            self.console.print()
+                time_str = ""
+            
+            table.add_row(str(i), f"{role_icon} {role}", content, time_str)
+        
+        self.console.print(table)
+        self.console.print(f"\n[muted]Showing last 10 of {len(self.context.messages)} messages[/]")
 
     async def _handle_command(self, command: str) -> bool: # Made async
         """Handle slash commands. Returns True if should continue, False to exit."""
@@ -351,20 +371,22 @@ class FridayCLI:
         
         # Standard Commands
         if cmd in ["/exit", "/quit", "/q"]:
-            self.console.print("\n[bold blue]Goodbye! Happy coding![/]")
+            self.console.print("\n[success]✓ Goodbye! Happy coding! 👋[/]")
             return False
         elif cmd == "/help":
             self._print_help()
         elif cmd == "/clear":
             self.context.clear()
-            self.console.print("[green]Conversation cleared[/]")
+            self.console.print("[success]✓ Conversation cleared[/]")
         elif cmd == "/context":
             self._print_context()
         elif cmd == "/history":
             self._print_history()
         elif cmd == "/compact":
+            before = len(self.context.messages)
             self.context.compact()
-            self.console.print("[green]Conversation history compacted[/]")
+            after = len(self.context.messages)
+            self.console.print(f"[success]✓ Conversation compacted[/] [muted]{before} → {after} messages[/]")
         elif cmd == "/model":
             self._show_model_info()
         elif cmd == "/diff":
@@ -382,7 +404,7 @@ class FridayCLI:
             self._run_safe(run_triage)
         elif cmd == "/plan":
             if not args:
-                self.console.print("[yellow]Usage: /plan <feature description>[/]")
+                self.console.print("[warning]⚠ Usage:[/] [command]/plan[/] [muted]<feature description>[/]")
             else:
                 self._run_safe(run_plan, args)
         elif cmd == "/work":
@@ -391,34 +413,39 @@ class FridayCLI:
             self._run_safe(run_review, args if args else "latest")
         elif cmd in ["/generate", "/generate-command"]:
             if not args:
-                self.console.print("[yellow]Usage: /generate <description>[/]")
+                self.console.print("[warning]⚠ Usage:[/] [command]/generate[/] [muted]<description>[/]")
             else:
                 self._run_safe(run_generate_command, description=args)
         elif cmd == "/codify":
             if not args:
-                self.console.print("[yellow]Usage: /codify <feedback>[/]")
+                self.console.print("[warning]⚠ Usage:[/] [command]/codify[/] [muted]<feedback>[/]")
             else:
                 self._run_safe(run_codify, feedback=args)
         elif cmd in ["/compress", "/compress-kb"]:
             kb = KnowledgeBase()
             self._run_safe(kb.compress_ai_md)
+        elif cmd == "/mcp":
+            await self._handle_mcp_command(args)
             
         else:
-            self.console.print(f"[yellow]Unknown command: {command}[/]")
-            self.console.print("[dim]Type /help for available commands[/dim]")
+            self.console.print(f"[warning]⚠ Unknown command:[/] [command]{command}[/]")
+            self.console.print("[muted]Type[/] [command]/help[/] [muted]for available commands[/]")
         
         return True
 
     def _run_safe(self, func, *args, **kwargs):
         """Run a workflow function safely"""
         if not configure_dspy:
-             self.console.print("[red]Error: Compounding commands are not available (imports failed).[/]")
+             self.console.print("[error]✗ Error:[/] Compounding commands are not available (imports failed)")
              return
              
         try:
             func(*args, **kwargs)
         except Exception as e:
-            self.console.print(f"[red]Error executing workflow: {e}[/]")
+            self.console.print(f"[error]✗ Error executing workflow:[/] {e}")
+            if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
+                import traceback
+                self.console.print(f"[muted]{traceback.format_exc()}[/]")
 
     async def _handle_mcp_command(self, args: str): # New async method
         """Handle /mcp commands"""
@@ -738,13 +765,16 @@ class FridayCLI:
                 await self.agent.process_message(user_input) # await process_message
                 
             except KeyboardInterrupt:
-                self.console.print("\n[dim]Use /exit to quit[/dim]")
+                self.console.print("\n[warning]⚠ Interrupted[/] [muted]Use /exit or Ctrl+D to quit[/]")
                 continue
             except EOFError:
-                self.console.print("\n[bold blue]Goodbye![/]")
+                self.console.print("\n[success]✓ Goodbye! 👋[/]")
                 break
             except Exception as e:
-                self.console.print(f"[red]Error: {e}[/]")
+                self.console.print(f"[error]✗ Error:[/] {str(e)}")
+                if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
+                    import traceback
+                    self.console.print(f"[muted]{traceback.format_exc()}[/]")
                 continue
 
         await self.mcp_manager.cleanup() # Cleanup MCP connections
