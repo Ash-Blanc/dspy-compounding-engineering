@@ -14,7 +14,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
 import random
 
-from friday.theme import FRIDAY_THEME, get_prompt_style, ASCII_ART
+from friday.theme import FRIDAY_THEME, get_prompt_style, get_rich_theme, ASCII_ART
 from friday.tools import ToolExecutor
 from friday.context import ConversationContext
 from friday.agent import FridayAgent
@@ -49,14 +49,17 @@ class FridayCLI:
                 Console().print(f"[yellow]Warning: Failed to configure DSPy: {e}[/]")
 
         self.workflows = {}  # Store compound workflows: {workflow_name: [commands]}
-        self.console = Console(theme=FRIDAY_THEME, force_terminal=True)
+        # Load user config (~/.friday/config.json)
+        self.user_config = self._load_user_config()
+
+        # Determine theme profile from env or config
+        theme_profile = os.getenv("FRIDAY_THEME_PROFILE") or (self.user_config.get("theme") if isinstance(self.user_config, dict) else None) or "dark"
+
+        self.console = Console(theme=get_rich_theme(theme_profile), force_terminal=True)
         self.context = ConversationContext()
         self.tools = ToolExecutor(self.console)
         self.agent = FridayAgent(self.console, self.tools, self.context)
         self.running = True
-
-        # Load user config (~/.friday/config.json)
-        self.user_config = self._load_user_config()
         
         history_dir = os.path.expanduser("~/.friday")
         os.makedirs(history_dir, exist_ok=True)
@@ -89,7 +92,7 @@ class FridayCLI:
         self.session = PromptSession(
             history=FileHistory(history_file),
             auto_suggest=AutoSuggestFromHistory(),
-            style=get_prompt_style(),
+            style=get_prompt_style(os.getenv("FRIDAY_THEME_PROFILE") or (self.user_config.get("theme") if isinstance(self.user_config, dict) else None)),
             multiline=False,
             key_bindings=self._create_key_bindings(),
             completer=command_completer,
