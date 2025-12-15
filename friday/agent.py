@@ -3,7 +3,7 @@
 import os
 import re
 import json
-from typing import List, Dict, Any, Generator
+from typing import List, Dict, Any, Generator, AsyncGenerator
 
 from rich.console import Console
 from rich.live import Live
@@ -13,9 +13,17 @@ from rich.spinner import Spinner
 from rich.text import Text
 from rich.syntax import Syntax
 
+from openai import OpenAI, AsyncOpenAI # Modified import
+
 from friday.tools import ToolExecutor
 from friday.context import ConversationContext
 from friday.theme import ASCII_ART
+
+# Try importing MCPManager, but don't fail if dependencies missing
+try:
+    from friday.mcp import MCPManager
+except ImportError:
+    MCPManager = None
 
 
 class FridayAgent:
@@ -34,6 +42,7 @@ You have access to these tools:
 - git_status(): Get git status
 - git_diff(target="HEAD"): Get git diff
 - git_log(count=10): Get git commit history
+{mcp_tools}
 
 When responding:
 1. Think step by step about what the user needs
@@ -54,23 +63,23 @@ Current working directory: {cwd}
 {context}
 """
 
-    def __init__(self, console: Console, tools: ToolExecutor, context: ConversationContext):
+    def __init__(self, console: Console, tools: ToolExecutor, context: ConversationContext, mcp_manager=None):
         self.console = console
         self.tools = tools
         self.context = context
+        self.mcp_manager = mcp_manager
         self._init_llm()
 
     def _init_llm(self):
         """Initialize the LLM client"""
         try:
-            import openai
             from dotenv import load_dotenv
             load_dotenv()
             
             provider = os.getenv("DSPY_LM_PROVIDER", "openai")
             
             if provider == "openai":
-                self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
                 self.model = os.getenv("DSPY_LM_MODEL", "gpt-4o")
             elif provider == "anthropic":
                 import anthropic
@@ -79,7 +88,7 @@ Current working directory: {cwd}
                 self.provider = "anthropic"
                 return
             elif provider == "openrouter":
-                self.client = openai.OpenAI(
+                self.client = AsyncOpenAI(
                     api_key=os.getenv("OPENROUTER_API_KEY"),
                     base_url="https://openrouter.ai/api/v1"
                 )
@@ -99,9 +108,20 @@ Current working directory: {cwd}
 
     def _get_system_prompt(self) -> str:
         """Build the system prompt with current context"""
+        mcp_tools_str = ""
+        if self.mcp_manager and self.mcp_manager.available_tools:
+            mcp_tools_str = "\nMCP Tools available:"
+            for tool in self.mcp_manager.available_tools:
+                # Add tool signature-like description
+                schema = tool.get('inputSchema', {})
+                props = schema.get('properties', {})
+                args_desc = ", ".join(props.keys())
+                mcp_tools_str += f"\n- {tool['name']}({args_desc}): {tool['description']}"
+
         return self.SYSTEM_PROMPT.format(
             cwd=os.getcwd(),
-            context=self.context.get_system_context()
+            context=self.context.get_system_context(),
+            mcp_tools=mcp_tools_str
         )
 
     def _parse_tool_calls(self, content: str) -> List[Dict[str, Any]]:
@@ -120,7 +140,7 @@ Current working directory: {cwd}
         
         return tool_calls
 
-    def _execute_tool(self, tool_name: str, args: Dict[str, Any]) -> str:
+    async def _execute_tool(self, tool_name: str, args: Dict[str, Any]) -> str:
         """Execute a tool and return the result"""
         tool_map = {
             "read_file": lambda: self.tools.read_file(
@@ -159,28 +179,43 @@ Current working directory: {cwd}
             "git_log": lambda: self.tools.git_log(args.get("count", 10)),
         }
         
-        if tool_name not in tool_map:
-            return f"Unknown tool: {tool_name}"
-        
-        self.console.print(f"\n[bold yellow]{ASCII_ART['tool']} Using tool:[/] [yellow]{tool_name}[/]")
-        if args:
-            args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in args.items())
-            self.console.print(f"[dim]  args: {args_str}[/]")
-        
-        try:
-            success, result = tool_map[tool_name]()
+        if tool_name in tool_map:
+            self.console.print(f"\n[bold yellow]{ASCII_ART['tool']} Using tool:[/] [yellow]{tool_name}[/]")
+            if args:
+                args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in args.items())
+                self.console.print(f"[dim]  args: {args_str}[/]")
             
-            if success:
-                return result
-            else:
-                self.console.print(f"[red]Tool error: {result}[/]")
-                return f"Error: {result}"
+            try:
+                success, result = tool_map[tool_name]()
                 
-        except Exception as e:
-            self.console.print(f"[red]Tool exception: {e}[/]")
-            return f"Error: {e}"
+                if success:
+                    return result
+                else:
+                    self.console.print(f"[red]Tool error: {result}[/]")
+                    return f"Error: {result}"
+                    
+            except Exception as e:
+                self.console.print(f"[red]Tool exception: {e}[/]")
+                return f"Error: {e}"
+        
+        # Check MCP
+        if self.mcp_manager:
+            found_tool = next((t for t in self.mcp_manager.available_tools if t["name"] == tool_name), None)
+            if found_tool:
+                self.console.print(f"\n[bold yellow]{ASCII_ART['tool']} Using MCP tool:[/] [yellow]{tool_name}[/]")
+                if args:
+                    args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in args.items())
+                    self.console.print(f"[dim]  args: {args_str}[/]")
+                
+                try:
+                    return await self.mcp_manager.call_tool(tool_name, args)
+                except Exception as e:
+                    self.console.print(f"[red]MCP Tool exception: {e}[/red]")
+                    return f"Error executing MCP tool: {e}"
 
-    def _stream_response(self, messages: List[Dict[str, str]]) -> Generator[str, None, None]:
+        return f"Unknown tool: {tool_name}"
+
+    async def _stream_response(self, messages: List[Dict[str, str]]) -> AsyncGenerator[str, None]:
         """Stream response from LLM"""
         if not self.client:
             yield "I'm not properly configured. Please set up your LLM provider (OPENAI_API_KEY, etc.)"
@@ -188,25 +223,26 @@ Current working directory: {cwd}
         
         try:
             if hasattr(self, 'provider') and self.provider == "anthropic":
-                with self.client.messages.stream(
+                # Anthropic client is already async
+                async with self.client.messages.stream(
                     model=self.model,
                     max_tokens=4096,
                     system=self._get_system_prompt(),
                     messages=messages
                 ) as stream:
-                    for text in stream.text_stream:
+                    async for text in stream.text_stream:
                         yield text
             else:
                 full_messages = [{"role": "system", "content": self._get_system_prompt()}] + messages
                 
-                stream = self.client.chat.completions.create(
+                stream = await self.client.chat.completions.create(
                     model=self.model,
                     messages=full_messages,
                     stream=True,
                     max_tokens=4096,
                 )
                 
-                for chunk in stream:
+                async for chunk in stream:
                     if chunk.choices[0].delta.content:
                         yield chunk.choices[0].delta.content
                         
@@ -241,7 +277,7 @@ Current working directory: {cwd}
                         self.console.print(Markdown(clean_text))
                 i += 1
 
-    def process_message(self, user_input: str):
+    async def process_message(self, user_input: str):
         """Process a user message and generate response"""
         self.context.add_user_message(user_input)
         
@@ -265,7 +301,7 @@ Current working directory: {cwd}
                       console=self.console, refresh_per_second=10) as live:
                 
                 buffer = ""
-                for chunk in self._stream_response(messages):
+                async for chunk in self._stream_response(messages):
                     full_response += chunk
                     buffer += chunk
                     
@@ -289,7 +325,7 @@ Current working directory: {cwd}
                 tool_name = tool_call.get("name", "")
                 tool_args = tool_call.get("args", {})
                 
-                result = self._execute_tool(tool_name, tool_args)
+                result = await self._execute_tool(tool_name, tool_args)
                 tool_results.append(f"[{tool_name}]: {result[:1000]}")
                 self.context.add_tool_result(tool_name, result)
             
