@@ -3,7 +3,7 @@
 import os
 import re
 import json
-from typing import List, Dict, Any, Generator
+from typing import List, Dict, Any, Generator, AsyncGenerator
 
 from rich.console import Console
 from rich.live import Live

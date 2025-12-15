@@ -2,30 +2,18 @@
 
 import os
 import signal
-import asyncio
-import os
-import signal
-import asyncio
-import logging
-import time
-from typing import Optional, List, Dict, Any
-import json
-from typing import Optional, List, Dict, Any
-import json
-import signal
 import asyncio # New import
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.logging import RichHandler
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
+import random
 
 from friday.theme import FRIDAY_THEME, get_prompt_style, get_rich_theme, ASCII_ART
 from friday.tools import ToolExecutor
@@ -44,37 +32,18 @@ try:
     from workflows.work import run_unified_work
     from utils.knowledge_base import KnowledgeBase
 except ImportError as e:
-class FridayCLI:
-    """Main Friday CLI application with enhanced error handling and user experience"""
+    # Handle case where dependencies aren't available
     import sys
     print(f"DEBUG: Import failed in friday/cli.py: {e}", file=sys.stderr)
+    configure_dspy = None
+
+
+class FridayCLI:
+    """Main Friday CLI application"""
+
     def __init__(self):
-        # Set up structured logging
-        self._setup_logging()
-        
         # Configure DSPy for compounding commands
         if configure_dspy:
-            try:
-                configure_dspy()
-            except Exception as e:
-                # Use a temporary console since self.console isn't init'd yet
-                Console().print(f"[yellow]Warning: Failed to configure DSPy: {e}[/]")
-                self.logger.warning(f"Failed to configure DSPy: {e}")
-        
-        self.workflows = {}  # Store compound workflows: {workflow_name: [commands]}
-        # Load user config (~/.friday/config.json)
-        # Initialize logger
-        self.logger = logging.getLogger("friday.cli")
-        
-        # Determine theme profile from env or config
-        theme_profile = os.getenv("FRIDAY_THEME_PROFILE") or (self.user_config.get("theme") if isinstance(self.user_config, dict) else None) or "dark"
-        
-        self.console = Console(theme=get_rich_theme(theme_profile), force_terminal=True)
-        self.context = ConversationContext()
-        self.tools = ToolExecutor(self.console)
-        self.mcp_manager = MCPManager()
-        self.agent = FridayAgent(self.console, self.tools, self.context, mcp_manager=self.mcp_manager)
-        self.running = True
             try:
                 configure_dspy()
             except Exception as e:
@@ -150,38 +119,7 @@ class FridayCLI:
         @kb.add('c-c')
         def _(event):
             """Handle Ctrl+C"""
-    def _setup_logging(self):
-        """Set up structured logging for debugging and monitoring"""
-        logging.basicConfig(
-            level=os.getenv("FRIDAY_LOG_LEVEL", "INFO").upper(),
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                RichHandler(
-                    console=self.console if hasattr(self, 'console') else Console(),
-                    show_time=True,
-                    show_path=False,
-                    markup=True
-                )
-            ]
-        )
-        
-        # Set up file logging as well
-        log_dir = os.path.expanduser("~/.friday/logs")
-        os.makedirs(log_dir, exist_ok=True)
-        
-        file_handler = logging.FileHandler(
-            os.path.join(log_dir, "friday.log"),
-            encoding="utf-8"
-        )
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        ))
-        
-        logger = logging.getLogger("friday")
-        logger.addHandler(file_handler)
-        logger.setLevel(os.getenv("FRIDAY_LOG_LEVEL", "INFO").upper())
-        
-        self.logger = logger
+            event.app.exit(result=None)
         
         @kb.add('c-d')
         def _(event):
@@ -251,119 +189,119 @@ class FridayCLI:
 
         # Choose ASCII art variant
         if ascii_variant == "compact":
-            ascii_art = f"[bold cyan]{ASCII_ART.get('friday_compact', 'FRIDAY')}[/]"
+            ascii_art = f"""
+[bold blue]
+{ASCII_ART.get("friday", "FRIDAY")}
+[/]
+"""
         else:
-            ascii_art = f"[bold cyan]{ASCII_ART.get('friday', 'FRIDAY')}[/]"
-        header = f"[header]FRIDAY[/] [muted]v{friday_version}[/]" if friday_version else "[header]FRIDAY[/]"
-        
-        # Get current Git info
-        git_info = ""
-        try:
-            import subprocess
-            branch = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, timeout=2
-            ).stdout.strip()
-            if branch:
-                git_info = f" [muted]on[/] [accent]{branch}[/]"
-        except Exception:
-            pass
+            ascii_art = """
+[bold blue]
+███████╗██████╗ ██╗ ██████╗  █████╗ ██╗   ██╗
+██╔════╝██╔══██╗██║██╔════╝ ██╔══██╗╚██╗ ██╔╝
+█████╗  ██████╔╝██║██║  ███╗███████║ ╚████╔╝ 
+██╔══╝  ██╔══██╗██║██╔══██║  ╚██╔╝  
+███████╗██║  ██║██║╚██████╔╝██║  ██║   ██║   
+╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+[/]
+"""
+        header = f"[bold white]FRIDAY[/] [dim]v{friday_version}[/]" if friday_version else "[bold white]FRIDAY[/]"
 
         # Build adaptive banner using Rich Panel
         if minimal_mode:
             body = "\n".join([
                 f"{header}",
-                "[subheader]AI-Powered Coding Assistant[/]",
-                "[muted]Commands:[/] [command]/help[/] [muted]·[/] [command]/clear[/] [muted]·[/] [command]/exit[/]",
+                "[cyan]AI-Powered Coding Assistant[/]",
+                "[green]/help[/]  [dim]Commands[/]  [green]/clear[/]  [dim]Clear[/]  [green]/exit[/]  [dim]Quit[/]",
             ])
             # Minimal: no ASCII art, compact body
-            self.console.print(Panel.fit(body, border_style="accent", padding=(0, 1)))
+            self.console.print(Panel.fit(body, border_style="blue"))
         else:
             body = "\n".join([
                 f"{header}",
-                "[subheader]AI-Powered Coding Assistant[/]",
+                "[cyan]AI-Powered Coding Assistant[/]",
                 "",
-                f"[muted]💡 {tip}[/]",
-                "",
-                "[command]/help[/]   [muted]Show available commands[/]",
-                "[command]/clear[/]  [muted]Clear conversation[/]",
-                "[command]/exit[/]   [muted]Exit Friday[/]",
+                f"[dim]{tip}[/]",
+                "[green]/help[/]  [dim]Show available commands[/]",
+                "[green]/clear[/] [dim]Clear conversation[/]",
+                "[green]/exit[/]  [dim]Exit Friday[/]",
             ])
             # Print ASCII art followed by adaptive panel
             self.console.print(ascii_art)
-            self.console.print(Panel.fit(body, border_style="accent", padding=(0, 1)))
+            self.console.print(Panel.fit(body, border_style="blue"))
 
         cwd = os.getcwd()
-        self.console.print(f"\n[muted]Working in[/] [path]{cwd}[/]{git_info}")
-        self.console.print(f"[separator]{'─' * 60}[/]\n")
+        self.console.print(f"[dim]Working directory:[/] [cyan]{cwd}[/]")
+        self.console.print()
 
     def _print_help(self):
         """Print help information"""
-        help_text = """[header]Commands[/]
-  [command]/help[/]              [muted]Show this help message[/]
-  [command]/clear[/]             [muted]Clear conversation history[/]
-  [command]/context[/]           [muted]Show current context (files, git status)[/]
-  [command]/history[/]           [muted]Show conversation history[/]
-  [command]/compact[/]           [muted]Compact/summarize conversation history[/]
-  [command]/model[/]             [muted]Show/change LLM model[/]
-  [command]/diff[/]              [muted]Show git diff[/]
-  [command]/status[/]            [muted]Show git status[/]
-  [command]/files[/] [pattern]    [muted]List files matching pattern[/]
-  [command]/compound[/]          [muted]Manage compound workflows[/]
-  [command]/mcp[/]               [muted]Manage Model Context Protocol servers[/]
-  [command]/exit[/], [command]/quit[/]       [muted]Exit Friday[/]
+        help_text = """
+[bold]Commands:[/]
+  [green]/help[/]              Show this help message
+  [green]/clear[/]             Clear conversation history
+  [green]/context[/]           Show current context (files, git status)
+  [green]/history[/]           Show conversation history
+  [green]/compact[/]           Compact/summarize conversation history
+  [green]/model[/]             Show/change LLM model
+  [green]/diff[/]              Show git diff
+  [green]/status[/]            Show git status
+  [green]/files[/] [pattern]    List files matching pattern
+  [green]/compound[/]          Manage compound workflows
+  [green]/mcp[/]               Manage Model Context Protocol servers
+  [green]/exit[/], [green]/quit[/]       Exit Friday
 
-[header]Compounding Commands[/]
-  [command]/triage[/]            [muted]Triage and categorize findings[/]
-  [command]/plan[/] <desc>       [muted]Transform description into project plan[/]
-  [command]/work[/] <pattern>    [muted]Execute work (ID, plan file, or pattern)[/]
-  [command]/review[/] [target]   [muted]Review PR or local changes[/]
-  [command]/generate[/] <desc>   [muted]Generate a new CLI command[/]
-  [command]/codify[/] <feedback> [muted]Codify feedback into knowledge base[/]
-  [command]/compress[/]          [muted]Compress knowledge base (AI.md)[/]
+[bold]Compounding Commands:[/]
+  [green]/triage[/]            Triage and categorize findings
+  [green]/plan[/] <desc>       Transform description into project plan
+  [green]/work[/] <pattern>    Execute work (ID, plan file, or pattern)
+  [green]/review[/] [target]   Review PR or local changes
+  [green]/generate[/] <desc>   Generate a new CLI command
+  [green]/codify[/] <feedback> Codify feedback into knowledge base
+  [green]/compress[/]          Compress knowledge base (AI.md)
 
-[header]Capabilities[/]
-  [success]✓[/] Read and edit files with syntax highlighting
-  [success]✓[/] Search codebase (grep, glob patterns)
-  [success]✓[/] Execute shell commands safely
-  [success]✓[/] Git operations (status, diff, log, commit)
-  [success]✓[/] Create and manage project todos
-  [success]✓[/] Generate feature plans and code reviews
-  [success]✓[/] Explain and refactor code
+[bold]Capabilities:[/]
+  [cyan]•[/] Read and edit files with syntax highlighting
+  [cyan]•[/] Search codebase (grep, glob patterns)
+  [cyan]•[/] Execute shell commands safely
+  [cyan]•[/] Git operations (status, diff, log, commit)
+  [cyan]•[/] Create and manage project todos
+  [cyan]•[/] Generate feature plans and code reviews
+  [cyan]•[/] Explain and refactor code
 
-[header]Examples[/]
-  [prompt.arrow]›[/] [dim]"Read the main.py file and explain what it does"[/]
-  [prompt.arrow]›[/] [dim]"/plan Add a new user authentication system"[/]
-  [prompt.arrow]›[/] [dim]"/work p1"[/]
-  [prompt.arrow]›[/] [dim]"/codify Always use type hints in Python functions"[/]
-  [prompt.arrow]›[/] [dim]"/compound run my-workflow"[/]
-  [prompt.arrow]›[/] [dim]"!ls -la" (Execute shell command)[/]
+[bold]Examples:[/]
+  [dim]›[/] "Read the main.py file and explain what it does"
+  [dim]›[/] "/plan Add a new user authentication system"
+  [dim]›[/] "/work p1"
+  [dim]›[/] "/codify Always use type hints in Python functions"
+  [dim]›[/] "/compound run my-workflow"
+  [dim]›[/] "!ls -la" (Execute shell command)
 
-[header]Tips[/]
-  [info]💡[/] Be specific about file paths and function names
-  [info]💡[/] Ask follow-up questions for clarification
-  [info]💡[/] Use Ctrl+C to cancel, Ctrl+D to exit
+[bold]Tips:[/]
+  [dim]•[/] Be specific about file paths and function names
+  [dim]•[/] Ask follow-up questions for clarification
+  [dim]•[/] Use Ctrl+C to cancel, Ctrl+D to exit
 """
-        self.console.print(Panel(help_text, title="[header]Friday Help[/]", border_style="accent", padding=(1, 2)))
+        self.console.print(Panel(help_text, title="[bold]Friday Help[/]", border_style="blue"))
 
     def _print_context(self):
         """Print current context information"""
         import subprocess
         
-        table = Table(title="[header]Current Context[/]", border_style="accent", show_header=True, header_style="subheader")
-        table.add_column("Item", style="subheader", no_wrap=True)
+        table = Table(title="Current Context", border_style="blue")
+        table.add_column("Item", style="cyan")
         table.add_column("Value", style="white")
         
-        table.add_row("📁 Working Directory", f"[path]{os.getcwd()}[/]")
+        table.add_row("Working Directory", os.getcwd())
         
         try:
             branch = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True, text=True, timeout=5
             ).stdout.strip()
-            table.add_row("🔀 Git Branch", f"[accent]{branch}[/]")
+            table.add_row("Git Branch", branch)
         except Exception:
-            table.add_row("🔀 Git Branch", "[muted]Not a git repo[/]")
+            table.add_row("Git Branch", "[dim]Not a git repo[/dim]")
         
         try:
             status = subprocess.run(
@@ -371,59 +309,34 @@ class FridayCLI:
                 capture_output=True, text=True, timeout=5
             ).stdout
             changed = len([line for line in status.strip().split('\n') if line])
-            status_color = "warning" if changed > 0 else "success"
-            table.add_row("📝 Changed Files", f"[{status_color}]{changed}[/]")
+            table.add_row("Changed Files", str(changed))
         except Exception:
             pass
         
-        turns = len(self.context.messages)
-        turn_color = "warning" if turns > 40 else "info" if turns > 20 else "muted"
-        table.add_row("💬 Conversation Turns", f"[{turn_color}]{turns}[/]")
-        
-        files = len(self.context.files_mentioned)
-        table.add_row("📄 Files in Context", f"[info]{files}[/]")
+        table.add_row("Conversation Turns", str(len(self.context.messages)))
+        table.add_row("Files in Context", str(len(self.context.files_mentioned)))
         
         provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         model = os.getenv("DSPY_LM_MODEL", "gpt-4o")
-        table.add_row("🤖 LLM Provider", f"[subheader]{provider}[/]/[muted]{model}[/]")
+        table.add_row("LLM Provider", f"{provider}/{model}")
         
         self.console.print(table)
 
     def _print_history(self):
         """Print conversation history"""
         if not self.context.messages:
-            self.console.print("[warning]⚠ No conversation history yet[/]")
+            self.console.print("[dim]No conversation history yet[/dim]")
             return
-        
-        table = Table(title="[header]Conversation History[/]", border_style="accent", show_header=True, header_style="subheader")
-        table.add_column("#", style="muted", width=4)
-        table.add_column("Role", style="subheader", width=10)
-        table.add_column("Content", style="white")
-        table.add_column("Time", style="muted", width=8)
         
         for i, msg in enumerate(self.context.messages[-10:], 1):
             role = msg.get("role", "unknown")
-            role_icon = {"user": "👤", "assistant": "🤖", "tool": "🔧", "system": "⚙️"}.get(role, "•")
-            content = msg.get("content", "")[:80]
-            if len(msg.get("content", "")) > 80:
-                content += "..."
+            content = msg.get("content", "")[:200]
             
-            # Parse timestamp if available
-            timestamp = msg.get("timestamp", "")
-            if timestamp:
-                from datetime import datetime
-                try:
-                    dt = datetime.fromisoformat(timestamp)
-                    time_str = dt.strftime("%H:%M:%S")
-                except Exception:
-                    time_str = ""
+            if role == "user":
+                self.console.print(f"[bold cyan]You:[/] {content}")
             else:
-                time_str = ""
-            
-            table.add_row(str(i), f"{role_icon} {role}", content, time_str)
-        
-        self.console.print(table)
-        self.console.print(f"\n[muted]Showing last 10 of {len(self.context.messages)} messages[/]")
+                self.console.print(f"[bold green]Friday:[/] {content}...")
+            self.console.print()
 
     async def _handle_command(self, command: str) -> bool: # Made async
         """Handle slash commands. Returns True if should continue, False to exit."""
@@ -433,51 +346,23 @@ class FridayCLI:
         
         # Standard Commands
         if cmd in ["/exit", "/quit", "/q"]:
-            self.console.print("\n[success]✓ Goodbye! Happy coding! 👋[/]")
+            self.console.print("\n[bold blue]Goodbye! Happy coding![/]")
             return False
         elif cmd == "/help":
             self._print_help()
         elif cmd == "/clear":
             self.context.clear()
-            self.console.print("[success]✓ Conversation cleared[/]")
+            self.console.print("[green]Conversation cleared[/]")
         elif cmd == "/context":
             self._print_context()
         elif cmd == "/history":
             self._print_history()
         elif cmd == "/compact":
-            before = len(self.context.messages)
             self.context.compact()
-            after = len(self.context.messages)
-            self.console.print(f"[success]✓ Conversation compacted[/] [muted]{before} → {after} messages[/]")
+            self.console.print("[green]Conversation history compacted[/]")
         elif cmd == "/model":
             self._show_model_info()
-    def _handle_file_error(self, error: Exception, operation: str, file_path: str = None):
-        """Handle file-related errors with comprehensive error messages"""
-        error_type = type(error).__name__
-        
-        if error_type == "FileNotFoundError":
-            self.console.print(f"[error]✗ File not found:[/] {file_path}")
-            self.logger.error(f"File not found: {file_path}")
-        elif error_type == "PermissionError":
-            self.console.print(f"[error]✗ Permission denied:[/] {file_path}")
-            self.logger.error(f"Permission denied for {operation} on {file_path}")
-        elif error_type == "IsADirectoryError":
-            self.console.print(f"[error]✗ Expected file, got directory:[/] {file_path}")
-            self.logger.error(f"Expected file, got directory: {file_path}")
-        elif error_type == "NotADirectoryError":
-            self.console.print(f"[error]✗ Expected directory, got file:[/] {file_path}")
-            self.logger.error(f"Expected directory, got file: {file_path}")
-        else:
-            self.console.print(f"[error]✗ File operation error:[/] {str(error)}")
-            self.logger.error(f"File operation error during {operation}: {str(error)}")
-        
-        # Provide helpful suggestions
-        if error_type == "PermissionError":
-            self.console.print(f"[info]💡 Try:[/] [command]chmod +r {file_path}[/] or run with elevated privileges")
-        elif error_type == "FileNotFoundError":
-            self.console.print(f"[info]💡 Check:[/] File path and working directory")
-        
-        return False
+        elif cmd == "/diff":
             self.tools.git_diff(args or "HEAD")
         elif cmd == "/status":
             self.tools.git_status()
@@ -492,117 +377,43 @@ class FridayCLI:
             self._run_safe(run_triage)
         elif cmd == "/plan":
             if not args:
-                self.console.print("[warning]⚠ Usage:[/] [command]/plan[/] [muted]<feature description>[/]")
+                self.console.print("[yellow]Usage: /plan <feature description>[/]")
             else:
                 self._run_safe(run_plan, args)
         elif cmd == "/work":
             self._run_safe(run_unified_work, pattern=args if args else None)
         elif cmd == "/review":
             self._run_safe(run_review, args if args else "latest")
-    def _validate_input(self, input_str: str, input_type: str = "text", allowed_values: List[str] = None) -> Optional[str]:
-        """Validate user input and provide helpful error messages"""
-    def _run_safe(self, func, *args, **kwargs):
-        """Run a workflow function safely with enhanced error handling"""
-        if not configure_dspy:
-            self.console.print("[error]✗ Error:[/] Compounding commands are not available (imports failed)")
-            self.logger.error("Compounding commands not available - imports failed")
-            return
-        
-        try:
-            self.logger.info(f"Starting workflow: {func.__name__}")
-            result = func(*args, **kwargs)
-            self.logger.info(f"Completed workflow: {func.__name__}")
-            return result
-        except FileNotFoundError as e:
-            self._handle_file_error(e, func.__name__)
-        except PermissionError as e:
-            self._handle_file_error(e, func.__name__)
-        except ValueError as e:
-            self.console.print(f"[error]✗ Invalid input:[/] {str(e)}")
-            self.logger.error(f"Invalid input in {func.__name__}: {str(e)}")
-        except Exception as e:
-            self.console.print(f"[error]✗ Error executing workflow:[/] {e}")
-            self.logger.error(f"Error in {func.__name__}: {str(e)}", exc_info=True)
-            if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
-                import traceback
-                self.console.print(f"[muted]{traceback.format_exc()}[/]")
-            self.console.print(f"[warning]⚠ Input cannot be empty[/]")
-            self.logger.warning("Empty input provided")
-            return None
-        
-        if input_type == "path":
-            # Basic path validation
-            if not os.path.exists(input_str):
-                self.console.print(f"[warning]⚠ Path does not exist:[/] {input_str}")
-                self.logger.warning(f"Non-existent path provided: {input_str}")
-                return None
-        
-        if allowed_values and input_str not in allowed_values:
-            self.console.print(f"[warning]⚠ Invalid value:[/] {input_str}")
-            self.console.print(f"[info]💡 Allowed values:[/] {', '.join(allowed_values)}")
-            self.logger.warning(f"Invalid input value: {input_str}")
-            return None
-        
-        return input_str.strip()
+        elif cmd in ["/generate", "/generate-command"]:
             if not args:
-                self.console.print("[warning]⚠ Usage:[/] [command]/generate[/] [muted]<description>[/]")
+                self.console.print("[yellow]Usage: /generate <description>[/]")
             else:
                 self._run_safe(run_generate_command, description=args)
         elif cmd == "/codify":
             if not args:
-                self.console.print("[warning]⚠ Usage:[/] [command]/codify[/] [muted]<feedback>[/]")
+                self.console.print("[yellow]Usage: /codify <feedback>[/]")
             else:
                 self._run_safe(run_codify, feedback=args)
         elif cmd in ["/compress", "/compress-kb"]:
             kb = KnowledgeBase()
             self._run_safe(kb.compress_ai_md)
-        elif cmd == "/mcp":
-            await self._handle_mcp_command(args)
             
         else:
-            self.console.print(f"[warning]⚠ Unknown command:[/] [command]{command}[/]")
-            self.console.print("[muted]Type[/] [command]/help[/] [muted]for available commands[/]")
+            self.console.print(f"[yellow]Unknown command: {command}[/]")
+            self.console.print("[dim]Type /help for available commands[/dim]")
         
         return True
 
-    def _show_progress(self, task_name: str, total_steps: int = None):
-        """Show progress indicator for long-running operations"""
-        if total_steps:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                "•",
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                "•",
-                TextColumn("[progress.completed]{task.completed}/{task.total}"),
-                console=self.console
-            ) as progress:
-                task = progress.add_task(f"[cyan]{task_name}[/]", total=total_steps)
-                while not progress.finished:
-                    progress.update(task, advance=0.1)
-                    time.sleep(0.1)
-        else:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=self.console
-            ) as progress:
-                task = progress.add_task(f"[cyan]{task_name}[/]")
-                while not progress.finished:
-                    progress.update(task, advance=1)
-                    time.sleep(0.1)
+    def _run_safe(self, func, *args, **kwargs):
         """Run a workflow function safely"""
         if not configure_dspy:
-             self.console.print("[error]✗ Error:[/] Compounding commands are not available (imports failed)")
+             self.console.print("[red]Error: Compounding commands are not available (imports failed).[/]")
              return
              
         try:
             func(*args, **kwargs)
         except Exception as e:
-            self.console.print(f"[error]✗ Error executing workflow:[/] {e}")
-            if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
-                import traceback
-                self.console.print(f"[muted]{traceback.format_exc()}[/]")
+            self.console.print(f"[red]Error executing workflow: {e}[/]")
 
     async def _handle_mcp_command(self, args: str): # New async method
         """Handle /mcp commands"""
@@ -777,10 +588,7 @@ class FridayCLI:
         
         commands = self.workflows[workflow_name]
         if not commands:
-    def _handle_interrupt(self, signum, frame):
-        """Handle interrupt signal gracefully with logging"""
-        self.console.print("\n[dim]Use /exit or Ctrl+D to quit[/dim]")
-        self.logger.info("User interrupted operation")
+            self.console.print(f"[dim]Workflow '{workflow_name}' is empty[/dim]")
             return
         
         self.console.print(f"[bold]Workflow '{workflow_name}':[/]")
@@ -792,33 +600,7 @@ class FridayCLI:
         if not workflow_name:
             self.console.print("[yellow]Error: Workflow name is required[/]")
             self.console.print("[dim]Usage: /compound run <workflow_name>[/dim]")
-    def _load_user_config(self):
-        """Load user config from ~/.friday/config.json if present with error handling"""
-        import json
-        cfg_path = os.path.expanduser("~/.friday/config.json")
-        if not os.path.exists(cfg_path):
-            self.logger.info("No user config found, using defaults")
-            return {}
-        try:
-            with open(cfg_path, "r") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    self.logger.info("User config loaded successfully")
-                    return data
-                else:
-                    self.logger.warning("User config is not a valid dictionary")
-                    return {}
-        except json.JSONDecodeError as e:
-            self.console.print(f"[warning]⚠ Invalid config file:[/] {cfg_path}")
-            self.logger.error(f"Invalid JSON in config file: {str(e)}")
-            return {}
-        except PermissionError as e:
-            self._handle_file_error(e, "reading config", cfg_path)
-            return {}
-        except Exception as e:
-            self.console.print(f"[warning]⚠ Error loading config:[/] {str(e)}")
-            self.logger.error(f"Error loading config: {str(e)}")
-            return {}
+            return
         
         if workflow_name not in self.workflows:
             self.console.print(f"[yellow]Error: Workflow '{workflow_name}' does not exist[/]")
@@ -951,16 +733,13 @@ class FridayCLI:
                 await self.agent.process_message(user_input) # await process_message
                 
             except KeyboardInterrupt:
-                self.console.print("\n[warning]⚠ Interrupted[/] [muted]Use /exit or Ctrl+D to quit[/]")
+                self.console.print("\n[dim]Use /exit to quit[/dim]")
                 continue
             except EOFError:
-                self.console.print("\n[success]✓ Goodbye! 👋[/]")
+                self.console.print("\n[bold blue]Goodbye![/]")
                 break
             except Exception as e:
-                self.console.print(f"[error]✗ Error:[/] {str(e)}")
-                if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
-                    import traceback
-                    self.console.print(f"[muted]{traceback.format_exc()}[/]")
+                self.console.print(f"[red]Error: {e}[/]")
                 continue
 
         await self.mcp_manager.cleanup() # Cleanup MCP connections
