@@ -18,6 +18,14 @@ This CLI tool provides AI-powered development tools for code review, planning, a
 
 ## Features
 
+- **🎨 Friday CLI**: Interactive AI coding assistant with beautiful terminal UI
+  - **Conversational Interface**: Natural language interactions with persistent context
+  - **Theme System**: Choose from dark, light, or high-contrast themes
+  - **Rich UI**: Icons, colors, tables, and adaptive banner
+  - **Smart Prompts**: Turn counter and context awareness
+  - **Git Integration**: Branch display and status tracking
+  - **Configurable**: CLI flags, environment variables, or config file
+
 - **🧠 Compounding Engineering**: True learning system where every operation makes the next one easier
   - **Auto-Learning**: Every todo resolution automatically codifies learnings
   - **KB Auto-Injection**: Past learnings automatically inform all AI operations
@@ -92,6 +100,69 @@ The repository includes a small wrapper script `uvx` that runs the CLI via `uv r
 The script is in the repository root and is executable; run it from the repo directory.
 
 You can also prefix commands with `compounding`, for example `./uvx compounding generate-command`.
+
+### Friday Interactive CLI
+
+Friday provides a conversational interface to all compounding workflows with an enhanced terminal experience:
+
+```bash
+# Start Friday with default settings
+python -m friday.app
+# or simply:
+friday
+
+# Customize the experience
+friday --theme light              # Use light theme (dark, light, hc)
+friday --minimal                  # Minimal banner
+friday --no-banner                # Skip banner entirely
+friday --ascii compact            # Choose ASCII art variant
+
+# Configure via environment variables
+export FRIDAY_THEME_PROFILE=dark  # Theme: dark, light, or hc (high-contrast)
+export FRIDAY_MINIMAL=1           # Minimal mode
+export FRIDAY_NO_BANNER=1         # Disable banner
+export FRIDAY_DEBUG=1             # Enable debug mode
+
+# Or use config file at ~/.friday/config.json
+{
+  "theme": "dark",
+  "banner": {
+    "enabled": true,
+    "minimal": false,
+    "ascii": "compact"
+  }
+}
+```
+
+**Friday Features:**
+- 🎨 **Beautiful Themes**: Dark (default), light, and high-contrast profiles
+- 📊 **Rich Tables**: Status displays with icons and proper formatting
+- 🔧 **Interactive Commands**: Autocomplete and command suggestions
+- 💬 **Persistent Context**: Conversation history across sessions
+- 📁 **Git Integration**: Branch display and file tracking
+- 🎯 **Smart Prompts**: Turn counting with color-coded context warnings
+- 🚀 **All Workflows**: Access planning, review, triage, and work execution
+
+**Common Friday Commands:**
+```
+/help                      Show all commands
+/plan <description>        Generate implementation plans
+/work <pattern>            Execute tasks and todos
+/review [target]           Review code changes
+/triage                    Categorize findings
+/codify <feedback>         Learn from feedback
+/context                   Show current context
+/history                   View conversation history
+/clear                     Clear conversation
+```
+
+**Example Session:**
+```
+project #1 › /plan Add user authentication with JWT tokens
+project #2 › /work auth
+project #3 › Tell me about the changes made
+project #4 › /review
+```
 
 ## Example run
 
