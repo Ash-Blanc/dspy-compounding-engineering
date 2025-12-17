@@ -1,8 +1,11 @@
 """Tests for knowledge base functionality."""
 
 import os
+
 import pytest
+
 from utils.knowledge import KnowledgeBase
+
 
 @pytest.mark.unit
 def test_knowledge_base_init(temp_dir, monkeypatch):
@@ -22,7 +25,7 @@ def test_save_learning(temp_dir, sample_learning, monkeypatch):
 
     # Provide category which is required for filename generation
     sample_learning["category"] = "test"
-    
+
     # Use correct method name: save_learning
     learning_path = kb.save_learning(sample_learning)
 

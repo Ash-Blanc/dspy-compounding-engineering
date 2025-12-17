@@ -22,7 +22,9 @@ class ProjectContext:
             self.base_dir = validate_path(base_dir, base_dir=os.getcwd())
         except ValueError as e:
             # Re-raise with clear context
-            raise ValueError(f"Security Error: ProjectContext restricted to {os.getcwd()}. {e}")
+            raise ValueError(
+                f"Security Error: ProjectContext restricted to {os.getcwd()}. {e}"
+            ) from e
 
     def get_context(self) -> str:
         """
