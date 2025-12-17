@@ -182,5 +182,18 @@ def compress_kb(
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
 
 
+@app.command()
+def index(
+    root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
+):
+    """
+    Index the codebase for semantic search using Vector Embeddings.
+    Use this to enable agents to find relevant code snippets.
+    Performs smart incremental indexing (skips unchanged files).
+    """
+    kb = KnowledgeBase()
+    kb.index_codebase(root_dir=root_dir)
+
+
 if __name__ == "__main__":
     app()

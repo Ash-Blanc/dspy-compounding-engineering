@@ -26,6 +26,7 @@ from qdrant_client.models import (
 )
 from rich.console import Console
 
+from utils.codebase_indexer import CodebaseIndexer
 from utils.embeddings import EmbeddingProvider
 from utils.knowledge_docs import KnowledgeDocumentation
 
@@ -75,6 +76,9 @@ class KnowledgeBase:
         # Initialize Embedding Provider
         self.embedding_provider = EmbeddingProvider()
 
+        # Initialize Codebase Indexer
+        self.codebase_indexer = CodebaseIndexer(self.client, self.embedding_provider)
+
         # Ensure collection exists
         self._ensure_collection()
 
@@ -123,6 +127,7 @@ class KnowledgeBase:
                         size=self.embedding_provider.vector_size, distance=Distance.COSINE
                     ),
                 )
+
         except Exception as e:
             console.print(f"[red]Failed to ensure Qdrant collection: {e}[/red]")
             self.vector_db_available = False
@@ -436,3 +441,11 @@ class KnowledgeBase:
             results.append({"learning": learning, "similarity": 0.9})
 
         return results
+
+    def index_codebase(self, root_dir: str = "."):
+        """Delegate to CodebaseIndexer."""
+        self.codebase_indexer.index_codebase(root_dir)
+
+    def search_codebase(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Delegate to CodebaseIndexer."""
+        return self.codebase_indexer.search_codebase(query, limit)
