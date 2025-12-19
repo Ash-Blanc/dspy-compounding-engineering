@@ -9,6 +9,7 @@ Thank you for your interest in contributing to Compounding Engineering! This pro
 - 📝 **Improve documentation** - Help others understand the project
 - 🔧 **Submit code** - Fix bugs or add features
 - ⭐ **Share knowledge** - Contribute review agents or workflow improvements
+- 🎨 **Enhance UI/UX** - Improve the Friday CLI theme system or add new features
 
 > **Looking for something to do?** Check out our [Issues page](https://github.com/Strategic-Automation/dspy-compounding-engineering/issues) for open tasks!
 
@@ -41,6 +42,34 @@ git checkout -b fix/your-bug-fix
 ```
 
 ## Development Workflow
+
+### Running the CLI
+
+The project provides two CLI interfaces:
+
+**Traditional CLI:**
+```bash
+# Using uvx wrapper
+./uvx -h
+./uvx review
+
+# Or directly
+uv run python cli.py
+```
+
+**Friday Interactive CLI:**
+```bash
+# Using module
+python -m friday.app
+
+# Or with uv
+uv run python -m friday.app
+
+# Test with different configurations
+friday --theme light
+friday --minimal
+FRIDAY_DEBUG=1 friday
+```
 
 ### Running Tests
 
@@ -169,6 +198,70 @@ git commit -m "docs: Update installation guide for Windows"
 ### 2. Create a Pull Request
 
 - Write a clear title and description
+
+## Friday CLI Development
+
+The Friday CLI (`friday/` directory) provides an interactive conversational interface:
+
+**Architecture:**
+- `friday/cli.py` - Main CLI implementation with command handling
+- `friday/app.py` - Entry point and argument parsing
+- `friday/agent.py` - AI agent integration and conversation flow
+- `friday/context.py` - Conversation and session management
+- `friday/theme.py` - Theme system, colors, and ASCII art
+- `friday/tools.py` - File operations and command execution
+
+**Testing Friday CLI:**
+```bash
+# Test different themes
+friday --theme dark
+friday --theme light
+friday --theme hc
+
+# Test banner variations
+friday --minimal
+friday --no-banner
+friday --ascii compact
+
+# Test with debug mode
+FRIDAY_DEBUG=1 friday
+
+# Test configuration
+mkdir -p ~/.friday
+cat > ~/.friday/config.json << 'EOF'
+{
+  "theme": "dark",
+  "banner": {
+    "enabled": true,
+    "minimal": false,
+    "ascii": "compact"
+  }
+}
+EOF
+friday
+```
+
+**Friday UI/UX Guidelines:**
+- **Theme Consistency**: Use semantic color roles (success, error, warning, info, muted)
+- **Icons**: Add visual feedback with appropriate icons (✓ ✗ ⚠ ℹ 💡)
+- **Responsive Design**: Ensure UI adapts to different terminal sizes
+- **Accessibility**: Test with all three theme profiles (dark, light, hc)
+- **Status Messages**: Provide clear feedback for all operations
+- **Tables**: Use Rich tables with proper styling for structured data
+
+**Adding New Commands:**
+1. Add command handler in `friday/cli.py` `_handle_command()` method
+2. Add to help text in `_print_help()` method
+3. Add autocomplete entry in command completer list
+4. Test with all theme profiles
+5. Update documentation
+
+**Theme Development:**
+- Themes are defined in `friday/theme.py` as Rich Theme objects
+- Three profiles: `dark`, `light`, `hc` (high-contrast)
+- Each has corresponding prompt_toolkit styles for input
+- Use semantic names, not direct colors (e.g., `success` not `green`)
+- Test readability in actual terminal emulators
 - Reference any related issues (#123)
 - Explain what changed and why
 - Include screenshots for UI changes
