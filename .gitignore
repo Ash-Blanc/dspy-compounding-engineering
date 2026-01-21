@@ -32,11 +32,8 @@ ENV/
 env/
 
 # Environment variables
-.env
-.env.local
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -63,3 +60,5 @@ site/
 htmlcov/
 .tox/
 qdrant_storage/
+config.bat
+node_modules
